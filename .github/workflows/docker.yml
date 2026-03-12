@@ -1,26 +1,36 @@
-name: Build Docker Image
+name: Deploy to Cloud Run
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          context: .
-          push: false
-          tags: blueprint-maker:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          workload_identity_provider: projects/983595415114/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@studio-2972039985-2dbb1.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: blueprint-maker
+          region: us-central1
+          project_id: studio-2972039985-2dbb1
+          source: .
+          env_vars: |
+            OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+          flags: --memory=1Gi --timeout=600 --port=8770 --allow-unauthenticated
