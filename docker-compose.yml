@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  blueprint-maker:
+    build: .
+    ports:
+      - "8770:8770"
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    volumes:
+      - ./output:/app/output
+      - ./workspace:/app/workspace
+    restart: unless-stopped
