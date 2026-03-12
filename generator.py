@@ -16,6 +16,8 @@ from renderer import render_master_blueprint, render_department_blueprint, rende
 
 
 async def call_llm(system: str, prompt: str, model: str, max_tokens: int = 8000) -> str:
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
     async with httpx.AsyncClient(timeout=300) as client:
         resp = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
@@ -34,55 +36,112 @@ async def call_llm(system: str, prompt: str, model: str, max_tokens: int = 8000)
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        choices = data.get("choices")
+        if not choices or not isinstance(choices, list):
+            raise RuntimeError("LLM returned no choices")
+        content = choices[0].get("message", {}).get("content", "")
+        if not content:
+            raise RuntimeError("LLM returned empty content")
+        return content
 
 
 def extract_json(text: str) -> dict:
+    import re
+
+    if not isinstance(text, str):
+        text = str(text)
     text = text.strip()
+
+    # Extract from code fences
     if "```json" in text:
-        text = text.split("```json")[1].split("```")[0].strip()
+        parts = text.split("```json", 1)[1]
+        if "```" in parts:
+            text = parts.split("```", 1)[0].strip()
+        else:
+            # No closing fence — take everything after ```json
+            text = parts.strip()
     elif "```" in text:
-        text = text.split("```")[1].split("```")[0].strip()
+        parts = text.split("```", 1)[1]
+        if "```" in parts:
+            text = parts.split("```", 1)[0].strip()
+        else:
+            text = parts.strip()
+        # If the extracted text starts with a language tag on its own line, skip it
+        if text and not text[0] in '{[':
+            first_nl = text.find('\n')
+            if first_nl != -1:
+                text = text[first_nl + 1:].strip()
+
+    # First, try direct parse
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        repaired = text
-        # Strip trailing garbage
-        while repaired and repaired[-1] not in ']},"0123456789truefalsn':
-            repaired = repaired[:-1]
-        # Try multiple repair strategies
-        for attempt in range(5):
-            try:
-                # Close unclosed strings
-                if repaired.count('"') % 2 == 1:
-                    repaired += '"'
-                # Remove trailing commas
-                while repaired and repaired.rstrip()[-1:] == ',':
-                    repaired = repaired.rstrip()[:-1]
-                # Remove incomplete key-value pairs (trailing "key":  with no value)
-                import re
-                repaired = re.sub(r',\s*"[^"]*"\s*:\s*$', '', repaired)
-                # Close brackets/braces
-                repaired += ']' * max(0, repaired.count('[') - repaired.count(']'))
-                repaired += '}' * max(0, repaired.count('{') - repaired.count('}'))
-                return json.loads(repaired)
-            except json.JSONDecodeError:
-                # Try trimming back to last complete item
-                # Find last complete object/array boundary
-                for trim_char in ['},', '],', '}', ']']:
-                    idx = repaired.rfind(trim_char)
-                    if idx > len(repaired) * 0.5:  # Don't trim more than half
-                        repaired = repaired[:idx + len(trim_char)]
-                        break
-                else:
-                    break
-        # Final aggressive attempt — trim to last valid closing brace/bracket
-        last_close = max(repaired.rfind('}'), repaired.rfind(']'))
-        if last_close > len(repaired) * 0.3:
-            repaired = repaired[:last_close + 1]
-            repaired += ']' * max(0, repaired.count('[') - repaired.count(']'))
-            repaired += '}' * max(0, repaired.count('{') - repaired.count('}'))
-        return json.loads(repaired)
+        pass
+
+    # Repair strategy
+    repaired = text
+
+    # Strip trailing garbage characters that aren't valid JSON endings
+    while repaired and repaired[-1] not in ']},"0123456789truefalsn':
+        repaired = repaired[:-1]
+
+    if not repaired:
+        raise json.JSONDecodeError("Empty JSON after stripping", text, 0)
+
+    # Attempt 1: Close unclosed structures
+    def try_close_and_parse(s: str) -> dict | None:
+        """Try to close unclosed strings, remove trailing commas, and balance brackets."""
+        fixed = s
+        # Close unclosed strings
+        if fixed.count('"') % 2 == 1:
+            fixed += '"'
+        # Remove trailing commas (including whitespace before them)
+        fixed = re.sub(r',\s*$', '', fixed)
+        # Remove incomplete key-value pairs at end (trailing "key": with no value)
+        fixed = re.sub(r',\s*"[^"]*"\s*:\s*$', '', fixed)
+        # Balance brackets/braces
+        fixed += ']' * max(0, fixed.count('[') - fixed.count(']'))
+        fixed += '}' * max(0, fixed.count('{') - fixed.count('}'))
+        try:
+            return json.loads(fixed)
+        except json.JSONDecodeError:
+            return None
+
+    result = try_close_and_parse(repaired)
+    if result is not None:
+        return result
+
+    # Attempt 2: Trim back to last complete item boundary, then close
+    for trim_char in ['},', '],', '}', ']']:
+        idx = repaired.rfind(trim_char)
+        if idx > len(repaired) * 0.5:
+            trimmed = repaired[:idx + len(trim_char)]
+            result = try_close_and_parse(trimmed)
+            if result is not None:
+                return result
+
+    # Attempt 3: Aggressive — find last valid closing brace/bracket
+    last_close = max(repaired.rfind('}'), repaired.rfind(']'))
+    if last_close > len(repaired) * 0.3:
+        trimmed = repaired[:last_close + 1]
+        result = try_close_and_parse(trimmed)
+        if result is not None:
+            return result
+
+    # Attempt 4: Find the first { and last } and try that substring
+    first_brace = text.find('{')
+    last_brace = text.rfind('}')
+    if first_brace != -1 and last_brace > first_brace:
+        try:
+            return json.loads(text[first_brace:last_brace + 1])
+        except json.JSONDecodeError:
+            pass
+
+    # All attempts failed
+    raise json.JSONDecodeError(
+        f"Could not parse or repair JSON (length={len(text)})",
+        text[:200], 0
+    )
 
 
 # ─── Master Blueprint Generation ─────────────────────────────────────
@@ -387,8 +446,17 @@ Output ONLY the JSON."""
         call_llm(DEPT_SYSTEM_PART2, prompt_part2, RENDERER_MODEL, max_tokens=16000),
     )
 
-    part1 = extract_json(result1)
-    part2 = extract_json(result2)
+    try:
+        part1 = extract_json(result1)
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"    WARNING: Failed to parse Part 1 JSON for {dept_name}: {e}")
+        part1 = {"department": dept_name, "department_id": dept_id, "mission": "", "team_structure": [], "daily_timeline": [], "workflows": []}
+
+    try:
+        part2 = extract_json(result2)
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"    WARNING: Failed to parse Part 2 JSON for {dept_name}: {e}")
+        part2 = {"documents": [], "kpis": [], "interactions": [], "escalation_matrix": [], "compliance_items": []}
 
     # Merge
     merged = {**part1, **part2}
@@ -495,8 +563,19 @@ Output ONLY JSON."""
         call_llm(GLOSSARY_SYSTEM, prompt2, RENDERER_MODEL, max_tokens=16000),
     )
 
-    part1 = extract_json(result1)
-    part2 = extract_json(result2)
+    try:
+        part1 = extract_json(result1)
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"    WARNING: Failed to parse Glossary Part 1 JSON: {e}")
+        part1 = {"glossary": [], "cross_department_processes": [], "general_policies": [], "technology_landscape": []}
+
+    try:
+        part2 = extract_json(result2)
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"    WARNING: Failed to parse Glossary Part 2 JSON: {e}")
+        part2 = {"risk_register": [], "meeting_cadences": [], "seasonal_patterns": [], "vendor_relationships": [],
+                 "customer_segmentation": [], "career_paths": [], "insurance_requirements": [],
+                 "industry_benchmarks": [], "common_mistakes": []}
 
     return {**part1, **part2}
 

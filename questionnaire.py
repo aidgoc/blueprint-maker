@@ -104,7 +104,9 @@ def get_question_for_step(step: int, session: dict) -> dict:
     stage = get_stage_for_step(step)
 
     if stage == 1:
-        return STAGES[1]["questions"][step]
+        if step < len(STAGES[1]["questions"]):
+            return STAGES[1]["questions"][step]
+        return {"key": f"extra_{step}", "question": "Any other details about your business?", "placeholder": ""}
     elif stage == 2:
         # Use dynamically generated questions
         stage2_qs = session.get("stage2_questions", STAGES[2]["questions"])
@@ -114,7 +116,12 @@ def get_question_for_step(step: int, session: dict) -> dict:
         return {"key": f"extra_{step}", "question": "Any other details about your operations?", "placeholder": ""}
     elif stage == 3:
         idx = step - 6
-        return STAGES[3]["questions"][idx]
+        stage3_qs = STAGES[3]["questions"]
+        if idx < len(stage3_qs):
+            return stage3_qs[idx]
+        return {"key": f"extra_{step}", "question": "Any final details?", "placeholder": ""}
+    # Should not reach here, but guard against it
+    return {"key": f"extra_{step}", "question": "Any other details?", "placeholder": ""}
 
 
 def compile_stage_answers(session: dict, stage: int) -> dict:

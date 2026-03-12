@@ -3,166 +3,416 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Service Blueprint Maker</title>
+<title>Blueprint — Map your business. Master your operations.</title>
 <style>
 :root {
-  --navy: #1B3A5C; --navy-light: #2A5580; --navy-dark: #0F2740;
-  --blue-card: #E8F0FE; --blue-border: #4A90D9;
-  --green-card: #E6F7ED; --green-border: #34A853;
-  --orange-card: #FFF3E0; --orange-border: #F09300;
-  --purple-card: #F3E8FD; --purple-border: #8E24AA;
-  --gray-light: #F5F7FA; --gray-mid: #DDE3EA; --gray-text: #5F6B7A;
-  --white: #FFFFFF; --text-dark: #1A1A2E;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08); --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --text: #1A1A2E;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --brand: #2563EB;
+  --brand-light: #EFF6FF;
+  --brand-hover: #1D4ED8;
+  --green: #10B981;
+  --green-light: #ECFDF5;
+  --amber: #F59E0B;
+  --red: #EF4444;
+  --border: #E5E7EB;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 6px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background: var(--gray-light); color: var(--text-dark); min-height: 100vh; }
-
-.header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); color: #fff; padding: 24px 32px; text-align: center; box-shadow: var(--shadow-lg); }
-.header h1 { font-size: 26px; font-weight: 700; }
-.header p { font-size: 14px; opacity: 0.8; margin-top: 6px; }
-
-.container { max-width: 800px; margin: 0 auto; padding: 24px; }
-
-/* Stage indicator */
-.stage-bar { display: flex; gap: 0; margin-bottom: 20px; background: var(--white); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
-.stage-step { flex: 1; padding: 14px 12px; text-align: center; font-size: 12px; font-weight: 600; color: var(--gray-text); background: var(--white); border-right: 1px solid var(--gray-mid); position: relative; transition: all 0.3s; }
-.stage-step:last-child { border-right: none; }
-.stage-step.active { background: var(--navy); color: #fff; }
-.stage-step.done { background: var(--green-card); color: var(--green-border); }
-.stage-step .stage-num { display: block; font-size: 18px; font-weight: 700; margin-bottom: 2px; }
-.stage-step .stage-label { display: block; font-size: 10px; opacity: 0.8; }
-
-/* Research indicator */
-.research-banner {
-  background: linear-gradient(135deg, var(--blue-card), var(--purple-card));
-  border: 1px solid var(--blue-border); border-radius: 10px; padding: 16px 20px;
-  margin-bottom: 16px; display: flex; align-items: center; gap: 14px;
-  animation: pulse-border 2s ease-in-out infinite;
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
-@keyframes pulse-border { 0%,100% { border-color: var(--blue-border); } 50% { border-color: var(--purple-border); } }
-.research-banner .spinner-sm { width: 24px; height: 24px; border: 3px solid var(--gray-mid); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+
+/* ── Header ── */
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 24px 32px; position: relative; z-index: 10;
+}
+.wordmark {
+  font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.5px;
+}
+.stage-counter {
+  font-size: 13px; color: var(--text-muted); font-weight: 500;
+}
+
+/* ── Stage Progress ── */
+.stage-progress {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; padding: 0 32px 32px; position: relative;
+}
+.stage-step {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  position: relative; z-index: 2;
+}
+.stage-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid var(--border); background: var(--surface);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stage-step.active .stage-dot {
+  background: var(--brand); border-color: var(--brand);
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.15);
+}
+.stage-step.done .stage-dot { background: var(--green); border-color: var(--green); }
+.stage-label {
+  font-size: 11px; font-weight: 500; color: var(--text-muted);
+  letter-spacing: 0.2px; transition: color 0.3s;
+}
+.stage-step.active .stage-label { color: var(--brand); font-weight: 600; }
+.stage-step.done .stage-label { color: var(--green); font-weight: 600; }
+.stage-line {
+  width: 80px; height: 2px; background: var(--border); flex-shrink: 0;
+  margin-bottom: 22px; transition: background 0.4s;
+}
+.stage-line.done { background: var(--green); }
+
+/* ── Landing ── */
+.landing-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 80px); padding: 0 24px 60px; text-align: center;
+}
+.landing-screen h2 {
+  font-size: 36px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.8px; line-height: 1.2; margin-bottom: 12px;
+}
+.landing-screen .tagline {
+  font-size: 16px; color: var(--text-secondary); max-width: 480px;
+  line-height: 1.6; margin-bottom: 40px;
+}
+.start-form { max-width: 560px; width: 100%; }
+.start-form textarea {
+  width: 100%; padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px;
+  font-size: 16px; font-family: inherit; resize: vertical; min-height: 120px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s; color: var(--text); background: var(--surface);
+  line-height: 1.6;
+}
+.start-form textarea:focus {
+  border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.start-form textarea::placeholder { color: var(--text-muted); font-style: italic; }
+.start-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 32px; background: var(--brand); color: #fff; border: none; border-radius: 100px;
+  font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit;
+  margin-top: 16px;
+}
+.start-btn:hover { background: var(--brand-hover); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+
+.features {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px; max-width: 680px; width: 100%; margin-top: 56px;
+}
+.feature-card {
+  background: var(--surface); border-radius: 12px; padding: 24px;
+  border: 1px solid var(--border); text-align: left; transition: box-shadow 0.2s;
+}
+.feature-card:hover { box-shadow: var(--shadow); }
+.feature-dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 14px; }
+.feature-card:nth-child(1) .feature-dot { background: var(--brand); }
+.feature-card:nth-child(2) .feature-dot { background: var(--green); }
+.feature-card:nth-child(3) .feature-dot { background: var(--amber); }
+.feature-card:nth-child(4) .feature-dot { background: #8B5CF6; }
+.feature-card h4 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.feature-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+/* ── Question Screen ── */
+.question-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 160px); padding: 0 24px;
+}
+.question-container {
+  max-width: 640px; width: 100%;
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.question-number {
+  font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 12px;
+  letter-spacing: 0.3px;
+}
+.question-text {
+  font-size: 26px; font-weight: 600; color: var(--text); line-height: 1.4;
+  letter-spacing: -0.3px; margin-bottom: 28px; max-width: 580px;
+}
+.answer-area textarea {
+  width: 100%; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px;
+  font-size: 16px; font-family: inherit; resize: none; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s; color: var(--text); background: var(--surface);
+  min-height: 100px; line-height: 1.6; overflow: hidden;
+}
+.answer-area textarea:focus {
+  border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.answer-area textarea::placeholder { color: var(--text-muted); font-style: italic; }
+.answer-actions {
+  display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 16px;
+}
+.key-hint { font-size: 12px; color: var(--text-muted); }
+.continue-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 12px 28px; background: var(--brand); color: #fff; border: none; border-radius: 100px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.continue-btn:hover { background: var(--brand-hover); }
+.continue-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.continue-btn .spinner {
+  width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
-.research-banner p { font-size: 13px; color: var(--text-dark); line-height: 1.5; }
-.research-banner p strong { color: var(--navy); }
 
-/* Research findings card */
-.findings-card { background: var(--white); border-radius: 10px; padding: 16px 20px; box-shadow: var(--shadow); margin-bottom: 16px; border-left: 4px solid var(--green-border); }
-.findings-card h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
-.findings-card .finding-row { font-size: 12px; color: var(--gray-text); padding: 3px 0; display: flex; gap: 8px; }
-.findings-card .finding-label { font-weight: 600; color: var(--text-dark); min-width: 100px; }
-.findings-card .finding-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.findings-card .f-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--navy); color: #fff; font-weight: 500; }
+/* ── Research Interstitial ── */
+.research-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 160px); padding: 0 24px; text-align: center;
+}
+.research-pulse {
+  width: 48px; height: 48px; border-radius: 50%; background: var(--brand);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; margin-bottom: 24px;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+.research-screen h3 {
+  font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 8px;
+}
+.research-screen .research-sub {
+  font-size: 14px; color: var(--text-secondary); max-width: 400px; line-height: 1.6;
+}
 
-/* Chat */
-.chat-area { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); min-height: 300px; display: flex; flex-direction: column; }
-.messages { flex: 1; padding: 24px; overflow-y: auto; max-height: 450px; }
-.msg { margin-bottom: 16px; display: flex; gap: 12px; align-items: flex-start; animation: fadeIn 0.3s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.msg.bot { flex-direction: row; } .msg.user { flex-direction: row-reverse; }
-.msg-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-.msg.bot .msg-avatar { background: var(--navy); color: #fff; }
-.msg.user .msg-avatar { background: var(--blue-card); color: var(--navy); }
-.msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; max-width: 80%; white-space: pre-wrap; }
-.msg.bot .msg-bubble { background: var(--gray-light); color: var(--text-dark); border-bottom-left-radius: 4px; }
-.msg.user .msg-bubble { background: var(--navy); color: #fff; border-bottom-right-radius: 4px; }
+/* ── Findings Card ── */
+.findings-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px 28px; max-width: 560px; width: 100%; margin-top: 32px; text-align: left;
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.findings-card h4 {
+  font-size: 14px; font-weight: 600; color: var(--green); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.findings-card .finding-row {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 8px;
+}
+.findings-tags {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
+}
+.f-tag {
+  font-size: 11px; padding: 4px 12px; border-radius: 100px;
+  background: var(--brand-light); color: var(--brand); font-weight: 600;
+}
+.stage-flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+.stage-item {
+  padding: 4px 10px; background: var(--green-light); border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 6px; font-size: 12px; font-weight: 500; color: #065F46;
+}
+.arrow-sep { color: var(--text-muted); font-weight: 400; font-size: 12px; }
+.findings-continue {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 12px 28px; background: var(--brand); color: #fff; border: none; border-radius: 100px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  margin-top: 20px;
+}
+.findings-continue:hover { background: var(--brand-hover); }
 
-.input-area { padding: 16px 24px; border-top: 1px solid var(--gray-mid); display: flex; gap: 10px; }
-.input-area textarea { flex: 1; padding: 12px 16px; border: 2px solid var(--gray-mid); border-radius: 10px; font-size: 14px; font-family: inherit; resize: none; outline: none; transition: border-color 0.2s; min-height: 48px; max-height: 120px; }
-.input-area textarea:focus { border-color: var(--blue-border); }
-.send-btn { padding: 12px 24px; background: var(--navy); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
-.send-btn:hover { background: var(--navy-light); }
-.send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Landing */
-.landing { text-align: center; padding: 60px 24px; }
-.landing h2 { font-size: 28px; font-weight: 700; color: var(--navy); margin-bottom: 12px; }
-.landing p { font-size: 15px; color: var(--gray-text); max-width: 600px; margin: 0 auto 30px; line-height: 1.7; }
-.start-form { max-width: 600px; margin: 0 auto; }
-.start-form textarea { width: 100%; padding: 16px 20px; border: 2px solid var(--gray-mid); border-radius: 12px; font-size: 15px; font-family: inherit; resize: vertical; min-height: 100px; outline: none; transition: border-color 0.2s; margin-bottom: 16px; }
-.start-form textarea:focus { border-color: var(--blue-border); }
-.start-btn { padding: 14px 40px; background: linear-gradient(135deg, var(--navy-dark), var(--navy)); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; box-shadow: var(--shadow); }
-.start-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-
-.features { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; max-width: 800px; margin: 40px auto 0; }
-.feature-card { background: var(--white); border-radius: 10px; padding: 20px; box-shadow: var(--shadow); text-align: left; border-left: 4px solid var(--blue-border); }
-.feature-card:nth-child(2) { border-left-color: var(--green-border); }
-.feature-card:nth-child(3) { border-left-color: var(--orange-border); }
-.feature-card:nth-child(4) { border-left-color: var(--purple-border); }
-.feature-card .f-icon { font-size: 24px; margin-bottom: 8px; }
-.feature-card h4 { font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
-.feature-card p { font-size: 12px; color: var(--gray-text); line-height: 1.5; }
-
-/* Results */
-.result-card { background: var(--white); border-radius: 12px; padding: 24px; box-shadow: var(--shadow); margin-top: 20px; }
-.result-card h3 { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 16px; }
-.file-list { list-style: none; padding: 0; }
-.file-list li { padding: 10px 14px; border: 1px solid var(--gray-mid); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; transition: background 0.15s; }
-.file-list li:hover { background: var(--blue-card); }
-.file-list li .fname { font-weight: 600; color: var(--navy); }
-.file-list li a { color: var(--blue-border); text-decoration: none; font-weight: 600; font-size: 12px; }
-.download-btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, var(--green-border), #2E7D32); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 20px; box-shadow: var(--shadow); text-decoration: none; transition: transform 0.15s; }
-.download-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-
-.profile-summary { background: var(--blue-card); border: 1px solid var(--blue-border); border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+/* ── Profile Summary ── */
+.profile-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 28px; max-width: 640px; width: 100%;
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.profile-card h4 { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 8px; }
+.profile-card .summary-text {
+  font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px;
+}
+.profile-card .research-stats {
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+  padding: 12px 16px; background: var(--bg); border-radius: 8px; margin-bottom: 16px;
+}
 .dept-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.dept-tag { font-size: 11px; padding: 4px 10px; border-radius: 16px; background: var(--navy); color: #fff; font-weight: 600; }
-.stage-flow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 8px; }
-.stage-item { padding: 3px 8px; background: var(--green-card); border: 1px solid var(--green-border); border-radius: 6px; font-size: 11px; font-weight: 500; }
-.arrow-sep { color: var(--gray-text); font-weight: 700; }
-.gen-btn { padding: 14px 32px; background: linear-gradient(135deg, var(--navy-dark), var(--navy)); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow); margin-top: 16px; transition: transform 0.15s; }
-.gen-btn:hover { transform: translateY(-2px); }
-.gen-spinner { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; }
-.big-spinner { width: 48px; height: 48px; border: 4px solid var(--gray-mid); border-top-color: var(--navy); border-radius: 50%; animation: spin 1s linear infinite; }
+.dept-tag {
+  font-size: 12px; padding: 4px 12px; border-radius: 100px;
+  background: var(--brand-light); color: var(--brand); font-weight: 600;
+}
+.section-label {
+  font-size: 11px; color: var(--text-muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; margin-top: 16px;
+}
+.generate-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 32px; background: var(--brand); color: #fff; border: none; border-radius: 100px;
+  font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit;
+  margin-top: 24px;
+}
+.generate-btn:hover { background: var(--brand-hover); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+.generate-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Generation Screen ── */
+.gen-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 160px); padding: 0 24px; text-align: center;
+}
+.gen-pulse {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--brand);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; margin-bottom: 24px;
+}
+.gen-screen h3 { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.gen-screen .gen-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+.gen-steps { text-align: left; max-width: 320px; width: 100%; }
+.gen-step {
+  font-size: 13px; color: var(--text-muted); padding: 6px 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.gen-step.done { color: var(--green); }
+.gen-step.active { color: var(--text); font-weight: 500; }
+
+/* ── Results ── */
+.result-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 160px); padding: 0 24px;
+}
+.result-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 32px; max-width: 600px; width: 100%;
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.result-card h3 {
+  font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 20px;
+}
+.file-list { list-style: none; padding: 0; }
+.file-list li {
+  padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.file-list li:hover { background: var(--brand-light); border-color: var(--brand); }
+.file-list li .fname { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.file-list li .fname::before {
+  content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--brand);
+}
+.file-list li a {
+  color: var(--brand); text-decoration: none; font-weight: 600; font-size: 13px;
+}
+.file-list li a:hover { text-decoration: underline; }
+.download-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 32px; background: var(--green); color: #fff; border: none;
+  border-radius: 100px; font-size: 15px; font-weight: 600; cursor: pointer;
+  margin-top: 24px; text-decoration: none; transition: all 0.2s; font-family: inherit;
+}
+.download-btn:hover { background: #059669; transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+.restart-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 12px 24px; background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
+  border-radius: 100px; font-size: 14px; font-weight: 500; cursor: pointer;
+  margin-top: 12px; text-decoration: none; transition: all 0.15s; font-family: inherit;
+}
+.restart-btn:hover { border-color: var(--text-secondary); color: var(--text); }
 
 .hidden { display: none !important; }
+
+@media (max-width: 640px) {
+  .landing-screen h2 { font-size: 28px; }
+  .question-text { font-size: 22px; }
+  .features { grid-template-columns: 1fr; }
+  .header { padding: 20px 20px; }
+  .stage-line { width: 40px; }
+}
 </style>
 </head>
 <body>
 
 <header class="header">
-  <h1>Service Blueprint Maker</h1>
-  <p>Research-powered business process mapping. 8 questions. Real industry data. Complete blueprint kit.</p>
+  <div class="wordmark">Blueprint</div>
+  <div class="stage-counter hidden" id="stageCounter">1 of 3</div>
 </header>
 
-<div class="container" id="landingScreen">
-  <div class="landing">
-    <h2>What does your business do?</h2>
-    <p>Tell us about your business. We'll research your industry, find real compliance standards, KPI benchmarks, and document templates &mdash; then generate a comprehensive service blueprint.</p>
+<!-- Landing Screen -->
+<div id="landingScreen">
+  <div class="landing-screen">
+    <h2>Map your business.<br>Master your operations.</h2>
+    <p class="tagline">Tell us about your business and we will research your industry, find real compliance standards, KPI benchmarks, and document templates, then generate a complete service blueprint.</p>
     <div class="start-form">
       <textarea id="bizDesc" placeholder="Describe your business in a few sentences...&#10;&#10;Example: We're a commercial plumbing company serving office buildings and hospitals. We handle new construction, retrofits, and maintenance contracts. About 50 employees."></textarea>
-      <button class="start-btn" onclick="startSession()">Start Building Your Blueprint</button>
+      <button class="start-btn" onclick="startSession()">Get Started <span>&rarr;</span></button>
     </div>
-  </div>
-  <div class="features">
-    <div class="feature-card"><div class="f-icon">&#x1F50D;</div><h4>Real Research</h4><p>We search for actual industry SOPs, compliance standards, and KPI benchmarks &mdash; not LLM imagination.</p></div>
-    <div class="feature-card"><div class="f-icon">&#x1F4CB;</div><h4>Only 8 Questions</h4><p>3 stages of targeted questions. Between each stage, our research agents dig deeper.</p></div>
-    <div class="feature-card"><div class="f-icon">&#x1F4C4;</div><h4>Research-Backed Output</h4><p>Every KPI, compliance item, and document template is grounded in real industry data.</p></div>
-    <div class="feature-card"><div class="f-icon">&#x1F4E5;</div><h4>Complete Kit</h4><p>Master blueprint + department blueprints with timelines, workflows, KPIs, and escalation matrices.</p></div>
+    <div class="features">
+      <div class="feature-card"><div class="feature-dot"></div><h4>Real Research</h4><p>We search for actual industry SOPs, compliance standards, and KPI benchmarks &mdash; not generic templates.</p></div>
+      <div class="feature-card"><div class="feature-dot"></div><h4>Only 8 Questions</h4><p>3 stages of targeted questions. Between each stage, our research agents dig deeper into your industry.</p></div>
+      <div class="feature-card"><div class="feature-dot"></div><h4>Research-Backed Output</h4><p>Every KPI, compliance item, and document template is grounded in real industry data.</p></div>
+      <div class="feature-card"><div class="feature-dot"></div><h4>Complete Kit</h4><p>Master blueprint + department blueprints with timelines, workflows, KPIs, and escalation matrices.</p></div>
+    </div>
   </div>
 </div>
 
-<div class="container hidden" id="chatScreen">
-  <div class="stage-bar" id="stageBar">
-    <div class="stage-step active" id="stage1"><span class="stage-num">1</span><span class="stage-label">Your Business</span></div>
-    <div class="stage-step" id="stage2"><span class="stage-num">2</span><span class="stage-label">Operations</span></div>
-    <div class="stage-step" id="stage3"><span class="stage-num">3</span><span class="stage-label">Systems &amp; Goals</span></div>
+<!-- Main App Screen -->
+<div class="hidden" id="appScreen">
+
+  <!-- Stage Progress Bar -->
+  <div class="stage-progress" id="stageBar">
+    <div class="stage-step active" id="stage1"><div class="stage-dot"></div><span class="stage-label">Your Business</span></div>
+    <div class="stage-line" id="line1"></div>
+    <div class="stage-step" id="stage2"><div class="stage-dot"></div><span class="stage-label">Operations</span></div>
+    <div class="stage-line" id="line2"></div>
+    <div class="stage-step" id="stage3"><div class="stage-dot"></div><span class="stage-label">Systems &amp; Goals</span></div>
   </div>
 
-  <div class="hidden" id="researchBanner"></div>
-  <div class="hidden" id="findingsCard"></div>
-
-  <div class="chat-area">
-    <div class="messages" id="messages"></div>
-    <div class="input-area" id="inputArea">
-      <textarea id="userInput" placeholder="Type your answer..." rows="2" onkeydown="handleKey(event)"></textarea>
-      <button class="send-btn" id="sendBtn" onclick="sendAnswer()">Send</button>
+  <!-- Question Area -->
+  <div id="questionArea">
+    <div class="question-screen">
+      <div class="question-container" id="questionContainer">
+        <div class="question-number" id="questionNumber">Question 1 of 8</div>
+        <div class="question-text" id="questionText"></div>
+        <div class="answer-area">
+          <textarea id="userInput" placeholder="Type your answer..." rows="3" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <div class="answer-actions">
+            <span class="key-hint">or press Enter &crarr;</span>
+            <button class="continue-btn" id="sendBtn" onclick="sendAnswer()">
+              <span id="btnText">Continue</span>
+              <span>&rarr;</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="hidden" id="profileArea"></div>
-  <div class="hidden" id="genProgress"></div>
-  <div class="hidden" id="resultArea"></div>
+  <!-- Research Interstitial -->
+  <div class="hidden" id="researchArea">
+    <div class="research-screen">
+      <div class="research-pulse"></div>
+      <h3>Researching your industry...</h3>
+      <p class="research-sub">Analyzing SOPs, compliance standards, and benchmarks for your specific business.</p>
+      <div class="hidden" id="findingsCard"></div>
+    </div>
+  </div>
+
+  <!-- Profile / Ready to Generate -->
+  <div class="hidden" id="profileArea">
+    <div class="question-screen">
+      <div id="profileContent"></div>
+    </div>
+  </div>
+
+  <!-- Generation Progress -->
+  <div class="hidden" id="genArea">
+    <div class="gen-screen" id="genContent"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="hidden" id="resultArea">
+    <div class="result-screen" id="resultContent"></div>
+  </div>
+
 </div>
 
 <script>
@@ -171,25 +421,14 @@ body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-
 
 var sessionId = null;
 var totalSteps = 8;
+var currentStep = 0;
 var currentStage = 1;
 
-function esc(str) { var d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
-
-function addMessage(text, isBot) {
-  var msgs = document.getElementById('messages');
-  var div = document.createElement('div');
-  div.className = 'msg ' + (isBot ? 'bot' : 'user');
-  var avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = isBot ? '\u{1F50D}' : '\u{1F464}';
-  var bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.textContent = text;
-  div.appendChild(avatar);
-  div.appendChild(bubble);
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.max(100, el.scrollHeight) + 'px';
 }
+window.autoResize = autoResize;
 
 function updateStageBar(stage) {
   for (var i = 1; i <= 3; i++) {
@@ -198,32 +437,54 @@ function updateStageBar(stage) {
     if (i < stage) el.className += ' done';
     if (i === stage) el.className += ' active';
   }
+  for (var j = 1; j <= 2; j++) {
+    var line = document.getElementById('line' + j);
+    line.className = 'stage-line';
+    if (j < stage) line.className += ' done';
+  }
+  var counter = document.getElementById('stageCounter');
+  counter.textContent = Math.min(stage, 3) + ' of 3';
   currentStage = stage;
 }
 
-function showResearching(msg) {
-  var banner = document.getElementById('researchBanner');
-  banner.classList.remove('hidden');
-  while (banner.firstChild) banner.removeChild(banner.firstChild);
-  var spinner = document.createElement('div');
-  spinner.className = 'spinner-sm';
-  banner.appendChild(spinner);
-  var p = document.createElement('p');
-  p.textContent = msg;
-  banner.appendChild(p);
+function showQuestion(question, stepNum) {
+  currentStep = stepNum || (currentStep + 1);
+  document.getElementById('questionNumber').textContent = 'Question ' + currentStep + ' of ' + totalSteps;
+  document.getElementById('questionText').textContent = question.question;
+  document.getElementById('userInput').placeholder = question.placeholder || 'Type your answer...';
+  document.getElementById('userInput').value = '';
+  document.getElementById('userInput').style.height = 'auto';
+
+  // Animate
+  var container = document.getElementById('questionContainer');
+  container.style.animation = 'none';
+  container.offsetHeight; // trigger reflow
+  container.style.animation = 'slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+
+  showOnly('questionArea');
+  document.getElementById('userInput').focus();
 }
 
-function hideResearching() {
-  document.getElementById('researchBanner').classList.add('hidden');
+function showOnly(sectionId) {
+  ['questionArea', 'researchArea', 'profileArea', 'genArea', 'resultArea'].forEach(function(id) {
+    document.getElementById(id).classList.add('hidden');
+  });
+  document.getElementById(sectionId).classList.remove('hidden');
+}
+
+function showResearching() {
+  showOnly('researchArea');
+  document.getElementById('findingsCard').classList.add('hidden');
 }
 
 function showFindings(data) {
   var card = document.getElementById('findingsCard');
   card.classList.remove('hidden');
+  card.className = 'findings-card';
   while (card.firstChild) card.removeChild(card.firstChild);
 
   var h4 = document.createElement('h4');
-  h4.textContent = '\u2705 Industry Research Complete';
+  h4.textContent = 'Here\'s what we found:';
   card.appendChild(h4);
 
   if (data.industry_overview) {
@@ -235,11 +496,11 @@ function showFindings(data) {
 
   if (data.departments_found && data.departments_found.length) {
     var label = document.createElement('div');
-    label.style.cssText = 'font-size:11px;color:var(--gray-text);font-weight:600;margin-top:8px;';
-    label.textContent = 'DEPARTMENTS IDENTIFIED:';
+    label.className = 'section-label';
+    label.textContent = 'Departments Identified';
     card.appendChild(label);
     var tags = document.createElement('div');
-    tags.className = 'finding-tags';
+    tags.className = 'findings-tags';
     data.departments_found.forEach(function(d) {
       var tag = document.createElement('span');
       tag.className = 'f-tag';
@@ -251,8 +512,8 @@ function showFindings(data) {
 
   if (data.stages_found && data.stages_found.length) {
     var label2 = document.createElement('div');
-    label2.style.cssText = 'font-size:11px;color:var(--gray-text);font-weight:600;margin-top:8px;';
-    label2.textContent = 'PROCESS STAGES FOUND:';
+    label2.className = 'section-label';
+    label2.textContent = 'Process Stages Found';
     card.appendChild(label2);
     var flow = document.createElement('div');
     flow.className = 'stage-flow';
@@ -265,6 +526,17 @@ function showFindings(data) {
     });
     card.appendChild(flow);
   }
+
+  var contBtn = document.createElement('button');
+  contBtn.className = 'findings-continue';
+  contBtn.textContent = 'Continue';
+  contBtn.onclick = function() {
+    if (window._pendingQuestion) {
+      showQuestion(window._pendingQuestion, window._pendingStep);
+      window._pendingQuestion = null;
+    }
+  };
+  card.appendChild(contBtn);
 }
 
 window.handleKey = function(event) {
@@ -275,8 +547,8 @@ window.startSession = function() {
   var desc = document.getElementById('bizDesc').value.trim();
   if (!desc) { alert('Please describe your business first.'); return; }
   document.getElementById('landingScreen').classList.add('hidden');
-  document.getElementById('chatScreen').classList.remove('hidden');
-  addMessage('Great! I\'ll ask you 8 targeted questions in 3 stages. Between each stage, I\'ll research your industry to make the next questions smarter.', true);
+  document.getElementById('appScreen').classList.remove('hidden');
+  document.getElementById('stageCounter').classList.remove('hidden');
 
   fetch('/api/start', {
     method: 'POST',
@@ -288,10 +560,11 @@ window.startSession = function() {
     sessionId = data.session_id;
     totalSteps = data.total_steps;
     updateStageBar(data.stage || 1);
-    addMessage(data.question.question, true);
-    document.getElementById('userInput').placeholder = data.question.placeholder || 'Type your answer...';
+    showQuestion(data.question, 1);
   })
-  .catch(function(e) { addMessage('Error connecting. Is the server running?', true); });
+  .catch(function(e) {
+    document.getElementById('questionText').textContent = 'Error connecting. Is the server running?';
+  });
 };
 
 window.sendAnswer = function() {
@@ -299,12 +572,12 @@ window.sendAnswer = function() {
   var answer = input.value.trim();
   if (!answer || !sessionId) return;
   var btn = document.getElementById('sendBtn');
+  var btnText = document.getElementById('btnText');
   btn.disabled = true;
-  input.value = '';
-  addMessage(answer, false);
-
-  // Show researching indicator if this might trigger research
-  var willResearch = false;
+  btnText.textContent = '';
+  var spinner = document.createElement('div');
+  spinner.className = 'spinner';
+  btn.insertBefore(spinner, btn.firstChild);
 
   fetch('/api/answer', {
     method: 'POST',
@@ -316,156 +589,198 @@ window.sendAnswer = function() {
     return r.json();
   })
   .then(function(data) {
-    hideResearching();
+    btn.disabled = false;
+    btnText.textContent = 'Continue';
+    if (spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
     if (data.done) {
-      updateStageBar(4); // all done
-      addMessage('All questions answered! Research complete. Ready to generate your blueprint.', true);
+      updateStageBar(4);
       showProfile(data);
     } else {
       if (data.stage) updateStageBar(data.stage);
 
       if (data.research_complete && data.research_summary) {
-        showFindings(data.research_summary);
-        addMessage('Research complete! Now I have much better context. ' + (data.stage_description || ''), true);
+        showResearching();
+        // Show findings after a brief moment
+        setTimeout(function() {
+          window._pendingQuestion = data.question;
+          window._pendingStep = currentStep + 1;
+          showFindings(data.research_summary);
+        }, 1500);
+      } else {
+        showQuestion(data.question, currentStep + 1);
       }
-
-      addMessage(data.question.question, true);
-      document.getElementById('userInput').placeholder = data.question.placeholder || 'Type your answer...';
     }
-    btn.disabled = false;
-    input.focus();
   })
   .catch(function(e) {
-    hideResearching();
-    addMessage('Error: ' + e.message, true);
     btn.disabled = false;
+    btnText.textContent = 'Continue';
+    if (spinner.parentNode) spinner.parentNode.removeChild(spinner);
+    document.getElementById('questionText').textContent = 'Error: ' + e.message;
   });
 
-  // Show research indicator after a short delay (in case it's a stage transition)
+  // Show research animation if it takes a while
   setTimeout(function() {
     if (btn.disabled) {
-      showResearching('Researching your industry... Searching for SOPs, compliance standards, and benchmarks.');
+      showResearching();
     }
-  }, 2000);
+  }, 3000);
 };
 
 function showProfile(data) {
-  document.getElementById('inputArea').classList.add('hidden');
-  var area = document.getElementById('profileArea');
-  area.classList.remove('hidden');
+  showOnly('profileArea');
+  var area = document.getElementById('profileContent');
   while (area.firstChild) area.removeChild(area.firstChild);
 
-  var summary = document.createElement('div');
-  summary.className = 'profile-summary';
-  var h4 = document.createElement('h4');
-  h4.textContent = '\u2705 Blueprint Profile Ready';
-  summary.appendChild(h4);
-  var pSum = document.createElement('p');
-  pSum.style.cssText = 'font-size:13px;color:var(--gray-text);margin-top:4px;';
-  pSum.textContent = data.profile_summary;
-  summary.appendChild(pSum);
+  var card = document.createElement('div');
+  card.className = 'profile-card';
 
-  // Research stats
+  var h4 = document.createElement('h4');
+  h4.textContent = 'Blueprint Profile Ready';
+  card.appendChild(h4);
+
+  var pSum = document.createElement('p');
+  pSum.className = 'summary-text';
+  pSum.textContent = data.profile_summary;
+  card.appendChild(pSum);
+
   if (data.research_findings) {
     var rf = data.research_findings;
     var stats = document.createElement('div');
-    stats.style.cssText = 'margin-top:12px;font-size:12px;color:var(--text-dark);';
+    stats.className = 'research-stats';
     stats.textContent = 'Research found: ' + (rf.compliance_items || 0) + ' compliance standards, ' + (rf.kpis_found || 0) + ' KPI benchmarks, ' + (rf.documents_found || 0) + ' document templates, ' + (rf.safety_standards || 0) + ' safety standards';
-    summary.appendChild(stats);
+    card.appendChild(stats);
   }
 
-  // Departments
   if (data.departments && data.departments.length) {
-    var dWrap = document.createElement('div');
-    dWrap.style.marginTop = '12px';
     var dLabel = document.createElement('div');
-    dLabel.style.cssText = 'font-size:11px;color:var(--gray-text);font-weight:600;margin-bottom:4px;';
-    dLabel.textContent = 'DEPARTMENTS:';
-    dWrap.appendChild(dLabel);
+    dLabel.className = 'section-label';
+    dLabel.textContent = 'Departments';
+    card.appendChild(dLabel);
     var dTags = document.createElement('div');
     dTags.className = 'dept-tags';
-    data.departments.forEach(function(d) { var t = document.createElement('span'); t.className = 'dept-tag'; t.textContent = d; dTags.appendChild(t); });
-    dWrap.appendChild(dTags);
-    summary.appendChild(dWrap);
+    data.departments.forEach(function(d) {
+      var t = document.createElement('span'); t.className = 'dept-tag'; t.textContent = d; dTags.appendChild(t);
+    });
+    card.appendChild(dTags);
   }
 
-  // Stages
   if (data.stages && data.stages.length) {
-    var sWrap = document.createElement('div');
-    sWrap.style.marginTop = '12px';
     var sLabel = document.createElement('div');
-    sLabel.style.cssText = 'font-size:11px;color:var(--gray-text);font-weight:600;margin-bottom:4px;';
-    sLabel.textContent = 'PROCESS STAGES:';
-    sWrap.appendChild(sLabel);
+    sLabel.className = 'section-label';
+    sLabel.textContent = 'Process Stages';
+    card.appendChild(sLabel);
     var sFlow = document.createElement('div');
     sFlow.className = 'stage-flow';
     data.stages.forEach(function(s, i) {
       if (i > 0) { var a = document.createElement('span'); a.className = 'arrow-sep'; a.textContent = '\u2192'; sFlow.appendChild(a); }
       var item = document.createElement('span'); item.className = 'stage-item'; item.textContent = s; sFlow.appendChild(item);
     });
-    sWrap.appendChild(sFlow);
-    summary.appendChild(sWrap);
+    card.appendChild(sFlow);
   }
 
-  area.appendChild(summary);
+  area.appendChild(card);
 
   var btnWrap = document.createElement('div');
   btnWrap.style.textAlign = 'center';
   var genBtn = document.createElement('button');
-  genBtn.className = 'gen-btn';
-  genBtn.textContent = '\u{1F680} Generate Blueprint Kit';
+  genBtn.className = 'generate-btn';
+  genBtn.innerHTML = 'Generate Blueprint Kit <span>&rarr;</span>';
   genBtn.onclick = generateBlueprint;
   btnWrap.appendChild(genBtn);
   area.appendChild(btnWrap);
 }
 
 window.generateBlueprint = function() {
-  var genBtn = document.querySelector('.gen-btn');
-  if (genBtn) genBtn.disabled = true;
-  var gp = document.getElementById('genProgress');
-  gp.classList.remove('hidden');
-  while (gp.firstChild) gp.removeChild(gp.firstChild);
-  var sw = document.createElement('div'); sw.className = 'gen-spinner';
-  var sp = document.createElement('div'); sp.className = 'big-spinner'; sw.appendChild(sp);
-  var p1 = document.createElement('p'); p1.style.fontWeight = '600'; p1.textContent = 'Generating your blueprint kit...'; sw.appendChild(p1);
-  var p2 = document.createElement('p'); p2.textContent = 'Using research data to create master blueprint + department blueprints. This takes 1-2 minutes.'; sw.appendChild(p2);
-  gp.appendChild(sw);
+  showOnly('genArea');
+  var gc = document.getElementById('genContent');
+  while (gc.firstChild) gc.removeChild(gc.firstChild);
+
+  var pulse = document.createElement('div');
+  pulse.className = 'gen-pulse';
+  gc.appendChild(pulse);
+
+  var h3 = document.createElement('h3');
+  h3.textContent = 'Generating your blueprint...';
+  gc.appendChild(h3);
+
+  var sub = document.createElement('p');
+  sub.className = 'gen-sub';
+  sub.textContent = 'Using research data to create your complete blueprint kit. This takes 1-2 minutes.';
+  gc.appendChild(sub);
 
   fetch('/api/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({session_id: sessionId})
   })
-  .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Failed'); }); return r.json(); })
-  .then(function(data) { if (data.status === 'done') { gp.classList.add('hidden'); showResults(data); } })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Failed'); });
+    return r.json();
+  })
+  .then(function(data) {
+    if (data.status === 'done') { showResults(data); }
+  })
   .catch(function(e) {
-    while (gp.firstChild) gp.removeChild(gp.firstChild);
-    var ew = document.createElement('div'); ew.style.cssText = 'text-align:center;padding:40px;';
-    var ep = document.createElement('p'); ep.style.cssText = 'color:#D93025;font-weight:600;'; ep.textContent = 'Error: ' + e.message; ew.appendChild(ep);
-    var rb = document.createElement('button'); rb.className = 'gen-btn'; rb.style.marginTop = '16px'; rb.textContent = 'Retry'; rb.onclick = generateBlueprint; ew.appendChild(rb);
-    gp.appendChild(ew);
+    while (gc.firstChild) gc.removeChild(gc.firstChild);
+    var ep = document.createElement('p');
+    ep.style.cssText = 'color:var(--red);font-weight:600;font-size:14px;margin-bottom:16px;';
+    ep.textContent = 'Error: ' + e.message;
+    gc.appendChild(ep);
+    var rb = document.createElement('button');
+    rb.className = 'generate-btn';
+    rb.textContent = 'Retry';
+    rb.onclick = generateBlueprint;
+    gc.appendChild(rb);
   });
 };
 
 function showResults(data) {
-  var ra = document.getElementById('resultArea');
-  ra.classList.remove('hidden');
-  while (ra.firstChild) ra.removeChild(ra.firstChild);
-  var card = document.createElement('div'); card.className = 'result-card';
-  var h3 = document.createElement('h3'); h3.textContent = '\u2705 Blueprint Kit Generated! (' + data.file_count + ' files)'; card.appendChild(h3);
-  var ul = document.createElement('ul'); ul.className = 'file-list';
+  showOnly('resultArea');
+  var rc = document.getElementById('resultContent');
+  while (rc.firstChild) rc.removeChild(rc.firstChild);
+
+  var card = document.createElement('div');
+  card.className = 'result-card';
+
+  var h3 = document.createElement('h3');
+  h3.textContent = 'Your Blueprint Kit is ready';
+  card.appendChild(h3);
+
+  var countP = document.createElement('p');
+  countP.style.cssText = 'font-size:14px;color:var(--text-secondary);margin-bottom:20px;';
+  countP.textContent = data.file_count + ' files generated';
+  card.appendChild(countP);
+
+  var ul = document.createElement('ul');
+  ul.className = 'file-list';
   data.files.forEach(function(f) {
     var li = document.createElement('li');
     var fn = document.createElement('span'); fn.className = 'fname'; fn.textContent = f; li.appendChild(fn);
-    var lk = document.createElement('a'); lk.href = '/api/preview/' + encodeURIComponent(sessionId) + '/' + encodeURIComponent(f); lk.target = '_blank'; lk.textContent = 'Preview \u2192'; li.appendChild(lk);
+    var lk = document.createElement('a');
+    lk.href = '/api/preview/' + encodeURIComponent(sessionId) + '/' + encodeURIComponent(f);
+    lk.target = '_blank'; lk.textContent = 'Preview \u2192'; li.appendChild(lk);
     ul.appendChild(li);
   });
   card.appendChild(ul);
-  var dw = document.createElement('div'); dw.style.textAlign = 'center';
-  var dl = document.createElement('a'); dl.href = '/api/download/' + encodeURIComponent(sessionId); dl.className = 'download-btn'; dl.textContent = '\u{1F4E5} Download Complete Kit (.zip)'; dw.appendChild(dl);
+
+  var dw = document.createElement('div');
+  dw.style.textAlign = 'center';
+  var dl = document.createElement('a');
+  dl.href = '/api/download/' + encodeURIComponent(sessionId);
+  dl.className = 'download-btn';
+  dl.textContent = 'Download Blueprint Kit (.zip)';
+  dw.appendChild(dl);
+
+  var rBtn = document.createElement('button');
+  rBtn.className = 'restart-btn';
+  rBtn.textContent = 'Generate Again';
+  rBtn.onclick = function() { window.location.reload(); };
+  dw.appendChild(document.createElement('br'));
+  dw.appendChild(rBtn);
+
   card.appendChild(dw);
-  ra.appendChild(card);
+  rc.appendChild(card);
 }
 
 })();

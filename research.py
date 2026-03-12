@@ -1,19 +1,101 @@
 """Research Engine — subagents that do real web research between question stages.
 
 Architecture:
-  After Stage 1 (3 Qs): Industry research — SOPs, org structures, process flows
-  After Stage 2 (3 Qs): Deep research — compliance, documents, KPIs, benchmarks
-  After Stage 3 (2 Qs): Final synthesis — compile everything into master blueprint data
+  After Stage 1 (3 Qs): Industry research -- SOPs, org structures, process flows
+  After Stage 2 (3 Qs): Deep research -- compliance, documents, KPIs, benchmarks
+  After Stage 3 (2 Qs): Final synthesis -- compile everything into master blueprint data
+
+Security hardening:
+  - SSRF protection: block internal/private IPs, metadata endpoints
+  - URL validation before fetching
+  - Content size limits on fetched pages
 """
 import json
 import asyncio
+import ipaddress
+import re
+import socket
+from urllib.parse import urlparse
+
 import httpx
 
 from config import OPENROUTER_API_KEY, PLANNER_MODEL, RENDERER_MODEL
 
 
+# ─── SSRF Protection ────────────────────────────────────────────────
+
+# Blocked IP ranges (private, loopback, link-local, metadata)
+BLOCKED_IP_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),      # Link-local + cloud metadata
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),        # Shared address space
+    ipaddress.ip_network("::1/128"),               # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),              # IPv6 private
+    ipaddress.ip_network("fe80::/10"),             # IPv6 link-local
+    ipaddress.ip_network("fd00::/8"),              # IPv6 unique local
+]
+
+# Blocked hostnames
+BLOCKED_HOSTNAMES = {
+    "localhost",
+    "metadata.google.internal",
+    "metadata.google",
+    "169.254.169.254",
+    "metadata",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+}
+
+MAX_FETCH_SIZE = 500_000  # 500KB max response body
+
+
+def is_url_safe(url: str) -> bool:
+    """Check if a URL is safe to fetch (not pointing to internal resources)."""
+    try:
+        parsed = urlparse(url)
+
+        # Only allow http/https
+        if parsed.scheme not in ("http", "https"):
+            return False
+
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Check blocked hostnames
+        hostname_lower = hostname.lower().strip(".")
+        if hostname_lower in BLOCKED_HOSTNAMES:
+            return False
+
+        # Block any hostname containing "metadata" or "internal"
+        if "metadata" in hostname_lower or "internal" in hostname_lower:
+            return False
+
+        # Try to resolve hostname and check IP
+        try:
+            resolved_ips = socket.getaddrinfo(hostname, None)
+            for _, _, _, _, sockaddr in resolved_ips:
+                ip = ipaddress.ip_address(sockaddr[0])
+                for blocked_range in BLOCKED_IP_RANGES:
+                    if ip in blocked_range:
+                        return False
+        except (socket.gaierror, ValueError):
+            # If we can't resolve, block it to be safe
+            return False
+
+        return True
+    except Exception:
+        return False
+
+
 async def call_llm(system: str, prompt: str, model: str = None, max_tokens: int = 4000) -> str:
     """Call OpenRouter."""
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
     async with httpx.AsyncClient(timeout=180) as client:
         resp = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
@@ -32,12 +114,21 @@ async def call_llm(system: str, prompt: str, model: str = None, max_tokens: int 
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        choices = data.get("choices")
+        if not choices or not isinstance(choices, list):
+            raise RuntimeError("LLM returned no choices")
+        content = choices[0].get("message", {}).get("content", "")
+        if not content:
+            raise RuntimeError("LLM returned empty content")
+        return content
 
 
 async def web_search(query: str) -> list[dict]:
     """Search the web via DuckDuckGo HTML (no API key needed)."""
     try:
+        # Sanitize query - remove potential SSRF payloads
+        query = re.sub(r'[<>{}|\\^~\[\]`]', '', query)[:500]
+
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             resp = await client.get(
                 "https://html.duckduckgo.com/html/",
@@ -77,31 +168,56 @@ async def web_search(query: str) -> list[dict]:
 
             return results
     except Exception as e:
-        return [{"title": "Search failed", "snippet": str(e), "url": ""}]
+        return [{"title": "Search failed", "snippet": "Search unavailable", "url": ""}]
 
 
 async def fetch_url_content(url: str) -> str:
-    """Fetch and extract text content from a URL."""
+    """Fetch and extract text content from a URL (with SSRF protection)."""
     try:
         if not url.startswith("http"):
             url = "https://" + url
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+
+        # SSRF protection: validate URL before fetching
+        if not is_url_safe(url):
+            return "[Blocked: URL points to internal/private resource]"
+
+        async with httpx.AsyncClient(
+            timeout=15,
+            follow_redirects=True,
+            max_redirects=3,  # Limit redirect chains
+        ) as client:
             resp = await client.get(
                 url,
                 headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"},
             )
             resp.raise_for_status()
-            html = resp.text
+
+            # Check content length before reading
+            content_length = resp.headers.get("content-length")
+            if content_length and int(content_length) > MAX_FETCH_SIZE:
+                return "[Skipped: Response too large]"
+
+            # Skip non-text content types
+            content_type = resp.headers.get("content-type", "")
+            if not any(t in content_type.lower() for t in ["text/", "html", "json", "xml"]):
+                return f"[Skipped non-text content: {content_type[:50]}]"
+
+            # Limit the text we process
+            html = resp.text[:MAX_FETCH_SIZE]
+
+            # Validate final URL after redirects (SSRF via redirect)
+            final_url = str(resp.url)
+            if not is_url_safe(final_url):
+                return "[Blocked: Redirect to internal/private resource]"
 
             # Basic HTML to text
-            import re
             text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
             text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
             text = re.sub(r'<[^>]+>', ' ', text)
             text = re.sub(r'\s+', ' ', text).strip()
             return text[:8000]  # first 8K chars
-    except Exception as e:
-        return f"[Failed to fetch: {e}]"
+    except Exception:
+        return "[Failed to fetch]"
 
 
 # ─── Research Agents ──────────────────────────────────────────────────
@@ -109,6 +225,11 @@ async def fetch_url_content(url: str) -> str:
 async def research_industry(industry: str, services: str, company: str) -> dict:
     """Stage 1 research: Deep industry analysis.
     Runs 4 parallel search queries to understand the industry."""
+
+    # Truncate inputs to prevent abuse
+    industry = industry[:500]
+    services = services[:500]
+    company = company[:200]
 
     searches = await asyncio.gather(
         web_search(f"{industry} business operations process flow SOP"),
@@ -140,7 +261,7 @@ async def research_industry(industry: str, services: str, company: str) -> dict:
         fetch_tasks = [fetch_url_content(url) for url in urls_to_fetch]
         fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
         for url, content in zip(urls_to_fetch, fetch_results):
-            if isinstance(content, str) and not content.startswith("[Failed"):
+            if isinstance(content, str) and not content.startswith("[Failed") and not content.startswith("[Blocked") and not content.startswith("[Skipped"):
                 fetched_content.append(f"[FROM {url}]:\n{content[:3000]}")
 
     deep_context = "\n\n".join(fetched_content) if fetched_content else ""
@@ -173,19 +294,17 @@ Be SPECIFIC to {industry}, not generic business advice. Use real terminology fou
         max_tokens=4000,
     )
 
-    try:
-        return json.loads(synthesis.strip().removeprefix("```json").removesuffix("```").strip())
-    except json.JSONDecodeError:
-        # Try to extract JSON from response
-        if "```json" in synthesis:
-            synthesis = synthesis.split("```json")[1].split("```")[0]
-        elif "```" in synthesis:
-            synthesis = synthesis.split("```")[1].split("```")[0]
-        return json.loads(synthesis.strip())
+    from generator import extract_json
+    return extract_json(synthesis)
 
 
 async def research_compliance_and_kpis(industry: str, services: str, departments: list, region: str) -> dict:
     """Stage 2 research: Compliance, regulations, KPIs, document templates."""
+
+    # Truncate inputs
+    industry = industry[:500]
+    services = services[:500]
+    departments = departments[:20]  # Limit number of departments
 
     searches = await asyncio.gather(
         web_search(f"{industry} regulatory compliance requirements {region}"),
@@ -216,7 +335,7 @@ async def research_compliance_and_kpis(industry: str, services: str, departments
         fetch_tasks = [fetch_url_content(url) for url in urls_to_fetch]
         fetch_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
         for url, content in zip(urls_to_fetch, fetch_results):
-            if isinstance(content, str) and not content.startswith("[Failed"):
+            if isinstance(content, str) and not content.startswith("[Failed") and not content.startswith("[Blocked") and not content.startswith("[Skipped"):
                 fetched_content.append(f"[FROM {url}]:\n{content[:3000]}")
 
     deep_context = "\n\n".join(fetched_content) if fetched_content else ""
@@ -231,7 +350,7 @@ SEARCH RESULTS:
 DETAILED CONTENT:
 {deep_context[:6000]}
 
-DEPARTMENTS: {', '.join(departments)}
+DEPARTMENTS: {', '.join(str(d)[:100] for d in departments)}
 
 Extract into this JSON:
 {{
@@ -260,14 +379,8 @@ Use REAL regulation names, REAL standards, REAL KPI benchmarks from the research
         max_tokens=6000,
     )
 
-    try:
-        return json.loads(synthesis.strip().removeprefix("```json").removesuffix("```").strip())
-    except json.JSONDecodeError:
-        if "```json" in synthesis:
-            synthesis = synthesis.split("```json")[1].split("```")[0]
-        elif "```" in synthesis:
-            synthesis = synthesis.split("```")[1].split("```")[0]
-        return json.loads(synthesis.strip())
+    from generator import extract_json
+    return extract_json(synthesis)
 
 
 async def compile_master_context(

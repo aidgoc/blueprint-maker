@@ -4,271 +4,339 @@ import json
 
 CSS_VARS = """
 :root {
-  --navy: #1B3A5C;
-  --navy-light: #2A5580;
-  --navy-dark: #0F2740;
-  --blue-card: #E8F0FE;
-  --blue-border: #4A90D9;
-  --green-card: #E6F7ED;
-  --green-border: #34A853;
-  --orange-card: #FFF3E0;
-  --orange-border: #F09300;
-  --red-badge: #D93025;
-  --red-bg: #FDECEA;
-  --purple-card: #F3E8FD;
-  --purple-border: #8E24AA;
-  --gray-light: #F5F7FA;
-  --gray-mid: #DDE3EA;
-  --gray-text: #5F6B7A;
-  --white: #FFFFFF;
-  --text-dark: #1A1A2E;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
-  --teal: #00897B;
-  --teal-bg: #E0F2F1;
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --text: #1A1A2E;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --brand: #2563EB;
+  --brand-light: #EFF6FF;
+  --brand-hover: #1D4ED8;
+  --blue-card: #DBEAFE;
+  --blue-border: #2563EB;
+  --green: #10B981;
+  --green-card: #D1FAE5;
+  --green-border: #10B981;
+  --green-light: #ECFDF5;
+  --amber: #F59E0B;
+  --amber-card: #FDE68A;
+  --amber-border: #F59E0B;
+  --amber-light: #FFFBEB;
+  --red: #EF4444;
+  --red-card: #FECACA;
+  --red-border: #EF4444;
+  --red-light: #FEF2F2;
+  --purple: #8B5CF6;
+  --purple-card: #E9D5FF;
+  --purple-border: #8B5CF6;
+  --purple-light: #F5F3FF;
+  --teal: #14B8A6;
+  --teal-card: #CCFBF1;
+  --teal-light: #F0FDFA;
+  --border: #E5E7EB;
+  --border-light: #F3F4F6;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 6px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+  --radius: 10px;
 }
 """
 
 BASE_CSS = CSS_VARS + """
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  background: var(--gray-light); color: var(--text-dark); line-height: 1.55; font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.6; font-size: 14px;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 .main-header {
-  background: linear-gradient(135deg, var(--navy-dark), var(--navy));
-  color: #fff; padding: 20px 32px; position: sticky; top: 0; z-index: 200;
-  box-shadow: var(--shadow-lg);
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 20px 32px; position: sticky; top: 0; z-index: 200;
+  display: flex; justify-content: space-between; align-items: flex-start;
 }
-.main-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-.main-header .subtitle { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+.header-left { flex: 1; }
+.header-right {
+  font-size: 13px; font-weight: 500; color: var(--text-muted); letter-spacing: -0.3px;
+  padding-top: 4px;
+}
+.main-header h1 {
+  font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.3px;
+}
+.main-header .subtitle {
+  font-size: 13px; color: var(--text-secondary); margin-top: 2px;
+}
+.main-header .breadcrumb {
+  font-size: 12px; color: var(--text-muted); margin-bottom: 4px;
+}
+.main-header .breadcrumb a {
+  color: var(--brand); text-decoration: none; font-weight: 500;
+}
+.main-header .breadcrumb a:hover { text-decoration: underline; }
 .nav-tabs {
-  background: var(--navy-light); padding: 0 32px; display: flex; gap: 0;
-  position: sticky; top: 68px; z-index: 199; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow-x: auto;
+  background: var(--surface); padding: 0 32px; display: flex; gap: 0;
+  position: sticky; top: 64px; z-index: 199; border-bottom: 1px solid var(--border); overflow-x: auto;
 }
 .nav-tab {
-  padding: 12px 20px; border: none; background: transparent; color: rgba(255,255,255,0.7);
-  font-size: 12px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent;
-  white-space: nowrap; transition: all 0.2s;
+  padding: 14px 20px; border: none; background: transparent; color: var(--text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s; font-family: inherit;
 }
-.nav-tab:hover { color: #fff; background: rgba(255,255,255,0.08); }
-.nav-tab.active { color: #fff; border-bottom-color: #FFB74D; background: rgba(255,255,255,0.1); }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
 .legend-bar {
   display: flex; flex-wrap: wrap; gap: 16px; padding: 10px 32px;
-  background: #fff; border-bottom: 1px solid var(--gray-mid); align-items: center;
+  background: var(--surface); border-bottom: 1px solid var(--border); align-items: center;
 }
-.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-text); }
-.legend-swatch { width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
-.legend-swatch.activity { background: var(--blue-card); border-color: var(--blue-border); }
-.legend-swatch.document { background: var(--green-card); border-color: var(--green-border); }
-.legend-swatch.approval { background: var(--orange-card); border-color: var(--orange-border); }
-.legend-swatch.critical { background: var(--red-bg); border-color: var(--red-badge); }
-.legend-swatch.handover { background: var(--purple-card); border-color: var(--purple-border); }
-.section { display: none; padding: 20px 32px; max-width: 1440px; margin: 0 auto; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.legend-swatch { width: 10px; height: 10px; border-radius: 50%; }
+.legend-swatch.activity { background: var(--brand); }
+.legend-swatch.document { background: var(--green); }
+.legend-swatch.approval { background: var(--amber); }
+.legend-swatch.critical { background: var(--red); }
+.legend-swatch.handover { background: var(--purple); }
+.section { display: none; padding: 24px 32px; max-width: 1440px; margin: 0 auto; }
 .section.active { display: block; }
 .section-title {
-  font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 6px;
-  padding-bottom: 8px; border-bottom: 2px solid var(--navy);
+  font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px;
+  letter-spacing: -0.2px;
 }
-.section-desc { font-size: 13px; color: var(--gray-text); margin-bottom: 20px; line-height: 1.6; }
-.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.section-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
 .metric-card {
-  background: #fff; border-radius: 8px; padding: 16px; box-shadow: var(--shadow);
-  border-left: 4px solid var(--blue-border);
+  background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border); position: relative; overflow: hidden;
 }
-.metric-card.green { border-left-color: var(--green-border); }
-.metric-card.orange { border-left-color: var(--orange-border); }
-.metric-card.red { border-left-color: var(--red-badge); }
-.metric-card.purple { border-left-color: var(--purple-border); }
-.metric-card.teal { border-left-color: var(--teal); }
-.metric-card h4 { font-size: 11px; text-transform: uppercase; color: var(--gray-text); letter-spacing: 0.5px; margin-bottom: 6px; }
-.metric-card .value { font-size: 26px; font-weight: 700; color: var(--navy); }
-.metric-card .detail { font-size: 11px; color: var(--gray-text); margin-top: 4px; }
+.metric-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--brand);
+}
+.metric-card.green::before { background: var(--green); }
+.metric-card.orange::before { background: var(--amber); }
+.metric-card.red::before { background: var(--red); }
+.metric-card.purple::before { background: var(--purple); }
+.metric-card.teal::before { background: var(--teal); }
+.metric-card.blue::before { background: var(--brand); }
+.metric-card h4 { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
+.metric-card .value { font-size: 28px; font-weight: 700; color: var(--brand); }
+.metric-card .detail { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 
 /* Timeline */
 .timeline { position: relative; margin: 20px 0; }
 .timeline::before {
-  content: ''; position: absolute; left: 24px; top: 0; bottom: 0; width: 3px;
-  background: linear-gradient(to bottom, var(--navy), var(--blue-border), var(--teal), var(--orange-border)); border-radius: 2px;
+  content: ''; position: absolute; left: 24px; top: 0; bottom: 0; width: 2px;
+  background: var(--border); border-radius: 1px;
 }
-.time-block { margin-bottom: 24px; position: relative; padding-left: 60px; }
+.time-block { margin-bottom: 20px; position: relative; padding-left: 60px; }
 .time-marker {
-  position: absolute; left: 10px; top: 0; width: 32px; height: 32px; border-radius: 50%;
-  background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  position: absolute; left: 14px; top: 0; width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; z-index: 2; border: 2px solid var(--surface);
 }
+.time-marker.blue { background: var(--brand-light); color: var(--brand); }
+.time-marker.green { background: var(--green-light); color: var(--green); }
+.time-marker.teal { background: var(--teal-light); color: var(--teal); }
+.time-marker.orange { background: var(--amber-light); color: var(--amber); }
+.time-marker.purple { background: var(--purple-light); color: var(--purple); }
+.time-marker.red { background: var(--red-light); color: var(--red); }
 .time-block-header {
-  background: var(--navy); color: #fff; padding: 10px 16px; border-radius: 8px 8px 0 0;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 12px 16px; border-radius: var(--radius) var(--radius) 0 0;
   display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+  transition: background 0.15s;
 }
+.time-block-header:hover { background: var(--bg); }
 .time-block-header h3 { font-size: 14px; font-weight: 600; }
-.time-block-header .time-range { font-size: 12px; opacity: 0.8; }
+.time-block-header .time-range { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
 .time-block-body {
-  background: #fff; border: 1px solid var(--gray-mid); border-top: none;
-  border-radius: 0 0 8px 8px; padding: 16px; box-shadow: var(--shadow);
+  background: var(--surface); border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius); padding: 16px; box-shadow: var(--shadow-sm);
 }
 .time-block-body.collapsed { display: none; }
-.activity-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-light); align-items: flex-start; }
+.activity-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); align-items: flex-start; }
 .activity-item:last-child { border-bottom: none; }
 .act-icon {
-  width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center;
-  justify-content: center; font-size: 16px; flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; flex-shrink: 0;
 }
 .act-icon.blue { background: var(--blue-card); }
 .act-icon.green { background: var(--green-card); }
-.act-icon.orange { background: var(--orange-card); }
-.act-icon.red { background: var(--red-bg); }
+.act-icon.orange { background: var(--amber-card); }
+.act-icon.red { background: var(--red-card); }
 .act-icon.purple { background: var(--purple-card); }
-.act-icon.teal { background: var(--teal-bg); }
-.act-content h4 { font-size: 13px; font-weight: 600; }
-.act-content p { font-size: 12px; color: var(--gray-text); margin-top: 2px; line-height: 1.5; }
-.tag { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 600; display: inline-block; margin-top: 4px; margin-right: 4px; }
-.tag.doc { background: var(--green-card); color: var(--green-border); }
-.tag.approval { background: var(--orange-card); color: var(--orange-border); }
-.tag.critical { background: var(--red-bg); color: var(--red-badge); }
-.tag.system { background: var(--blue-card); color: var(--blue-border); }
-.tag.handover { background: var(--purple-card); color: var(--purple-border); }
+.act-icon.teal { background: var(--teal-card); }
+.act-content h4 { font-size: 13px; font-weight: 600; color: var(--text); }
+.act-content p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.5; }
+.tag { font-size: 10px; padding: 2px 8px; border-radius: 100px; font-weight: 600; display: inline-block; margin-top: 4px; margin-right: 4px; }
+.tag.doc { background: var(--green-light); color: var(--green); }
+.tag.approval { background: var(--amber-light); color: var(--amber); }
+.tag.critical { background: var(--red-light); color: var(--red); }
+.tag.system { background: var(--brand-light); color: var(--brand); }
+.tag.handover { background: var(--purple-light); color: var(--purple); }
 
 /* Workflows */
-.workflow-container { background: #fff; border-radius: 8px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; overflow-x: auto; }
-.workflow-title { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 14px; }
+.workflow-container { background: var(--surface); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-sm); margin-bottom: 18px; overflow-x: auto; border: 1px solid var(--border); }
+.workflow-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; }
 .workflow-steps { display: flex; align-items: flex-start; gap: 0; min-width: max-content; padding: 10px 0; }
 .wf-step { display: flex; flex-direction: column; align-items: center; min-width: 140px; max-width: 160px; text-align: center; }
 .wf-step-box {
   width: 120px; padding: 10px 8px; border-radius: 8px; font-size: 11px; font-weight: 600;
-  line-height: 1.4; border: 2px solid; min-height: 56px; display: flex; align-items: center; justify-content: center;
+  line-height: 1.4; border: 1.5px solid; min-height: 56px; display: flex; align-items: center; justify-content: center;
 }
-.wf-step-box.blue { background: var(--blue-card); border-color: var(--blue-border); color: var(--navy); }
-.wf-step-box.green { background: var(--green-card); border-color: var(--green-border); color: #1B5E20; }
-.wf-step-box.orange { background: var(--orange-card); border-color: var(--orange-border); color: #E65100; }
-.wf-step-box.red { background: var(--red-bg); border-color: var(--red-badge); color: var(--red-badge); }
-.wf-step-box.purple { background: var(--purple-card); border-color: var(--purple-border); color: var(--purple-border); }
-.wf-step-box.teal { background: var(--teal-bg); border-color: var(--teal); color: #004D40; }
-.wf-step .wf-role { font-size: 9px; color: var(--gray-text); margin-top: 4px; }
-.wf-step .wf-time { font-size: 9px; color: var(--orange-border); margin-top: 2px; font-weight: 600; }
-.wf-arrow { display: flex; align-items: center; justify-content: center; min-width: 36px; padding-top: 14px; color: var(--navy); font-size: 18px; font-weight: 700; }
+.wf-step-box.blue { background: var(--brand-light); border-color: var(--brand); color: var(--brand); }
+.wf-step-box.green { background: var(--green-light); border-color: var(--green); color: #065F46; }
+.wf-step-box.orange { background: var(--amber-light); border-color: var(--amber); color: #92400E; }
+.wf-step-box.red { background: var(--red-light); border-color: var(--red); color: var(--red); }
+.wf-step-box.purple { background: var(--purple-light); border-color: var(--purple); color: var(--purple); }
+.wf-step-box.teal { background: var(--teal-light); border-color: var(--teal); color: #134E4A; }
+.wf-step .wf-role { font-size: 10px; color: var(--text-secondary); margin-top: 6px; }
+.wf-step .wf-time { font-size: 10px; color: var(--amber); margin-top: 2px; font-weight: 600; }
+.wf-arrow { display: flex; align-items: center; justify-content: center; min-width: 36px; padding-top: 14px; color: var(--text-muted); font-size: 18px; font-weight: 400; }
 
 /* Document cards */
 .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .doc-card {
-  background: #fff; border-radius: 8px; padding: 14px; box-shadow: var(--shadow);
-  border-left: 4px solid var(--green-border);
+  background: var(--surface); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border); position: relative; overflow: hidden;
 }
-.doc-card h4 { font-size: 13px; font-weight: 600; color: var(--navy); margin-bottom: 4px; }
-.doc-card .doc-desc { font-size: 11px; color: var(--gray-text); line-height: 1.5; }
-.doc-card .doc-flow { font-size: 10px; color: var(--blue-border); margin-top: 6px; font-weight: 500; }
-.doc-card .doc-freq { font-size: 9px; background: var(--blue-card); color: var(--blue-border); padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 4px; font-weight: 600; }
+.doc-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--green);
+}
+.doc-card h4 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.doc-card .doc-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.doc-card .doc-flow { font-size: 11px; color: var(--brand); margin-top: 6px; font-weight: 500; }
+.doc-card .doc-freq { font-size: 10px; background: var(--brand-light); color: var(--brand); padding: 3px 10px; border-radius: 100px; display: inline-block; margin-top: 6px; font-weight: 600; }
 
 /* KPI cards */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .kpi-card {
-  background: #fff; border-radius: 8px; padding: 16px; box-shadow: var(--shadow); text-align: center;
-  border-top: 4px solid var(--blue-border);
+  background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm); text-align: center;
+  border: 1px solid var(--border); position: relative; overflow: hidden;
 }
-.kpi-card.green { border-top-color: var(--green-border); }
-.kpi-card.orange { border-top-color: var(--orange-border); }
-.kpi-card.red { border-top-color: var(--red-badge); }
-.kpi-card.purple { border-top-color: var(--purple-border); }
-.kpi-card .kpi-name { font-size: 11px; text-transform: uppercase; color: var(--gray-text); letter-spacing: 0.5px; }
-.kpi-card .kpi-value { font-size: 28px; font-weight: 700; color: var(--navy); margin: 8px 0; }
-.kpi-card .kpi-target { font-size: 11px; color: var(--green-border); font-weight: 600; }
-.kpi-card .kpi-desc { font-size: 11px; color: var(--gray-text); margin-top: 6px; }
+.kpi-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--brand);
+}
+.kpi-card.green::before { background: var(--green); }
+.kpi-card.orange::before { background: var(--amber); }
+.kpi-card.red::before { background: var(--red); }
+.kpi-card.purple::before { background: var(--purple); }
+.kpi-card.blue::before { background: var(--brand); }
+.kpi-card.teal::before { background: var(--teal); }
+.kpi-card .kpi-name { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; font-weight: 600; }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 700; color: var(--brand); margin: 8px 0; }
+.kpi-card .kpi-target { font-size: 12px; color: var(--green); font-weight: 600; }
+.kpi-card .kpi-desc { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
 
 /* Interaction map */
 .interaction-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .dept-card {
-  background: #fff; border-radius: 8px; padding: 16px; box-shadow: var(--shadow);
-  border-top: 3px solid var(--blue-border);
+  background: var(--surface); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
 }
-.dept-card h4 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
-.flow-item { font-size: 12px; padding: 4px 0; border-bottom: 1px dashed var(--gray-mid); display: flex; gap: 6px; align-items: flex-start; }
+.dept-card h4 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.flow-item { font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border-light); display: flex; gap: 8px; align-items: flex-start; }
 .flow-item:last-child { border-bottom: none; }
-.flow-dir { font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
-.flow-dir.in { background: var(--green-card); color: var(--green-border); }
-.flow-dir.out { background: var(--blue-card); color: var(--blue-border); }
+.flow-dir { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 100px; flex-shrink: 0; margin-top: 1px; }
+.flow-dir.in { background: var(--green-light); color: var(--green); }
+.flow-dir.out { background: var(--brand-light); color: var(--brand); }
 
 /* Escalation */
-.esc-matrix { display: flex; gap: 0; margin-bottom: 20px; flex-wrap: wrap; }
-.esc-level { flex: 1; min-width: 220px; background: #fff; border: 1px solid var(--gray-mid); padding: 16px; }
-.esc-level:first-child { border-radius: 8px 0 0 8px; }
-.esc-level:last-child { border-radius: 0 8px 8px 0; }
-.esc-level .level-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 8px; }
-.esc-level h4 { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-.esc-level .esc-desc { font-size: 11px; color: var(--gray-text); line-height: 1.5; }
-.esc-level .esc-time { font-size: 10px; font-weight: 600; color: var(--orange-border); margin-top: 6px; }
+.esc-card {
+  background: var(--surface); border-radius: var(--radius); padding: 20px;
+  box-shadow: var(--shadow-sm); margin-bottom: 14px; border: 1px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.esc-card::before {
+  content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
+}
+.esc-card.level-1::before { background: var(--green); }
+.esc-card.level-2::before { background: var(--amber); }
+.esc-card.level-3::before { background: var(--red); }
+.esc-card.level-4::before { background: var(--purple); }
 
 /* Compliance */
 .compliance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.compliance-card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: var(--shadow); border-top: 4px solid var(--navy); }
-.compliance-card h4 { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-.compliance-card p { font-size: 12px; color: var(--gray-text); line-height: 1.5; }
-.compliance-card .freq { font-size: 10px; color: var(--orange-border); font-weight: 600; margin-top: 6px; }
+.compliance-card {
+  background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border); position: relative; overflow: hidden;
+}
+.compliance-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--text);
+}
+.compliance-card h4 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.compliance-card p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.compliance-card .freq { font-size: 11px; color: var(--amber); font-weight: 600; margin-top: 6px; }
 
 /* Data table */
-.data-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
-.data-table th { background: var(--navy); color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; }
-.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-mid); }
-.data-table tr:hover td { background: var(--blue-card); }
+.data-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+.data-table th { background: var(--bg); color: var(--text); padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; border-bottom: 2px solid var(--border); }
+.data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+.data-table tr:hover td { background: var(--bg); }
 
 /* Blueprint grid (master) */
 .blueprint-wrapper { overflow-x: auto; padding: 16px; }
-.blueprint-grid { display: grid; gap: 1px; background: var(--gray-mid); border: 1px solid var(--gray-mid); border-radius: 8px; overflow: hidden; }
+.blueprint-grid { display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .stage-header {
-  background: var(--navy); color: white; padding: 12px 8px; text-align: center;
+  background: #F0F4F8; color: var(--text); padding: 14px 10px; text-align: center;
   font-weight: 700; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border-bottom: 2px solid var(--brand);
 }
 .stage-header .stage-num {
-  background: rgba(255,255,255,0.2); border-radius: 50%; width: 22px; height: 22px;
+  background: var(--brand); color: #fff; border-radius: 50%; width: 22px; height: 22px;
   display: flex; align-items: center; justify-content: center; font-size: 11px;
 }
 .role-label {
-  background: var(--navy-dark); color: white; padding: 10px 10px; font-weight: 600; font-size: 11px;
+  background: #F8FAFC; color: var(--text); padding: 12px 12px; font-weight: 600; font-size: 12px;
   display: flex; align-items: center; gap: 6px; position: sticky; left: 0; z-index: 10; min-width: 170px; max-width: 170px;
+  border-right: 2px solid var(--border);
 }
 .corner-cell {
-  background: var(--navy-dark); color: white; padding: 10px; font-weight: 700; font-size: 12px;
+  background: #F0F4F8; color: var(--text-secondary); padding: 12px; font-weight: 600; font-size: 12px;
   display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 11;
-  min-width: 170px; max-width: 170px;
+  min-width: 170px; max-width: 170px; border-right: 2px solid var(--border); border-bottom: 2px solid var(--brand);
 }
 .bp-cell {
-  background: white; padding: 6px; min-height: 80px; position: relative; cursor: pointer; transition: background 0.15s;
+  background: var(--surface); padding: 8px; min-height: 80px; position: relative; cursor: pointer; transition: background 0.15s;
 }
-.bp-cell:hover { background: #F8FAFC; }
+.bp-cell:hover { background: var(--bg); }
 .card {
-  padding: 4px 6px; border-radius: 4px; font-size: 10px; line-height: 1.35; margin-bottom: 3px;
+  padding: 5px 8px; border-radius: 6px; font-size: 11px; line-height: 1.4; margin-bottom: 4px;
   border-left: 3px solid; cursor: pointer;
 }
-.card.activity { background: var(--blue-card); border-color: var(--blue-border); }
-.card.document { background: var(--green-card); border-color: var(--green-border); }
-.card.approval { background: var(--orange-card); border-color: var(--orange-border); }
-.card.critical { background: var(--red-bg); border-color: var(--red-badge); }
-.card.handover { background: var(--purple-card); border-color: var(--purple-border); }
-.card-detail { display: none; font-size: 9px; color: var(--gray-text); margin-top: 2px; line-height: 1.4; }
+.card.activity { background: var(--brand-light); border-color: #DBEAFE; }
+.card.document { background: var(--green-light); border-color: #D1FAE5; }
+.card.approval { background: var(--amber-light); border-color: #FDE68A; }
+.card.critical { background: var(--red-light); border-color: #FECACA; }
+.card.handover { background: var(--purple-light); border-color: #E9D5FF; }
+.card-detail { display: none; font-size: 10px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
 .bp-cell.expanded .card-detail { display: block; }
 .ctrl-btn {
-  padding: 6px 14px; border: 1px solid var(--gray-mid); border-radius: 6px; background: white;
-  font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.2s;
+  padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  font-size: 13px; cursor: pointer; font-weight: 500; transition: all 0.15s; color: var(--text);
+  font-family: inherit;
 }
-.ctrl-btn:hover { background: var(--gray-light); border-color: var(--blue-border); }
-.controls-bar { display: flex; gap: 12px; padding: 10px 32px; background: #fff; border-bottom: 1px solid var(--gray-mid); }
+.ctrl-btn:hover { background: var(--bg); border-color: var(--brand); color: var(--brand); }
+.controls-bar { display: flex; gap: 10px; padding: 10px 32px; background: var(--surface); border-bottom: 1px solid var(--border); }
 
 /* Print */
 @media print {
   .main-header, .nav-tabs { position: static; }
   .section { display: block !important; page-break-inside: avoid; }
   .time-block-body.collapsed { display: block !important; }
-  body { font-size: 11px; }
+  .nav-tabs, .controls-bar, .legend-bar { display: none; }
+  body { font-size: 12px; background: #fff; }
 }
 @media (max-width: 768px) {
-  .main-header, .section { padding-left: 12px; padding-right: 12px; }
-  .nav-tabs { padding: 0 8px; }
-  .nav-tab { padding: 9px 12px; font-size: 10.5px; }
+  .main-header, .section { padding-left: 14px; padding-right: 14px; }
+  .nav-tabs { padding: 0 10px; }
+  .nav-tab { padding: 10px 14px; font-size: 12px; }
   .card-grid, .doc-grid, .kpi-grid, .interaction-map, .compliance-grid { grid-template-columns: 1fr; }
   .workflow-steps { flex-direction: column; align-items: center; }
   .wf-arrow { transform: rotate(90deg); }
 }
 """
 
+
+import re as _re
 
 def _esc(text) -> str:
     """HTML-escape text. Handles lists, dicts, and non-string types."""
@@ -280,14 +348,28 @@ def _esc(text) -> str:
         text = json.dumps(text)
     elif not isinstance(text, str):
         text = str(text)
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#x27;")
+
+
+def _css_class(text) -> str:
+    """Sanitize a string for use as a CSS class name. Only allow alphanumeric, hyphens, underscores."""
+    if not text or not isinstance(text, str):
+        return "activity"
+    return _re.sub(r'[^a-zA-Z0-9_-]', '', text)[:30]
+
+
+def _esc_id(text) -> str:
+    """Sanitize a string for use as an HTML id or filename prefix. Only allow alphanumeric, hyphens, underscores."""
+    if not text or not isinstance(text, str):
+        return "item"
+    return _re.sub(r'[^a-zA-Z0-9_-]', '', text)[:50]
 
 
 # ─── Master Blueprint Renderer ────────────────────────────────────────
 
 
 def render_master_blueprint(data: dict) -> str:
-    """Render the master service blueprint (stages × roles grid)."""
+    """Render the master service blueprint (stages x roles grid)."""
     stages = data.get("stages", [])
     roles = data.get("roles", [])
     matrix = data.get("matrix", {})
@@ -301,11 +383,11 @@ def render_master_blueprint(data: dict) -> str:
     min_width = grid_cols * 220
 
     # Header row
-    header_cells = f'<div class="corner-cell">Roles \\ Stages</div>'
+    header_cells = f'<div class="corner-cell">Roles / Stages</div>'
     for s in stages:
-        sid = s.get("id", "")
+        sid = _esc(str(s.get("id", "")))
         sname = _esc(s.get("name", ""))
-        sicon = s.get("icon", "")
+        sicon = _esc(s.get("icon", ""))
         header_cells += f'''<div class="stage-header">
             <div class="stage-num">{sid}</div>
             <div>{sicon}</div>
@@ -315,21 +397,21 @@ def render_master_blueprint(data: dict) -> str:
     # Data rows
     data_rows = ""
     for r in roles:
-        rid = r.get("id", "")
+        rid = _esc_id(r.get("id", ""))
         rname = _esc(r.get("name", ""))
-        ricon = r.get("icon", "")
+        ricon = _esc(r.get("icon", ""))
         has_file = rid != "client"
         link_start = f'<a href="{rid}-blueprint.html" target="_blank" style="color:inherit;text-decoration:none;">' if has_file else ""
         link_end = "</a>" if has_file else ""
         data_rows += f'<div class="role-label">{link_start}{ricon} {rname}{link_end}</div>'
 
         for s in stages:
-            sid = s.get("id", "")
+            sid = _esc(str(s.get("id", "")))
             key = f"{rid}-{sid}"
             items = matrix.get(key, [])
             cards = ""
             for item in items:
-                itype = item.get("type", "activity")
+                itype = _css_class(item.get("type", "activity"))
                 itext = _esc(item.get("text", ""))
                 idetail = _esc(item.get("detail", ""))
                 cards += f'<div class="card {itype}"><span>{itext}</span><div class="card-detail">{idetail}</div></div>'
@@ -345,14 +427,14 @@ def render_master_blueprint(data: dict) -> str:
     # Hub section
     hub_cards = ""
     for r in roles:
-        rid = r.get("id", "")
+        rid = _esc_id(r.get("id", ""))
         rname = _esc(r.get("name", ""))
-        ricon = r.get("icon", "")
+        ricon = _esc(r.get("icon", ""))
         hub_cards += f'''<a href="{rid}-blueprint.html" target="_blank" class="hub-card">
-            <div style="font-size:28px;margin-bottom:6px;">{ricon}</div>
-            <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px;">{rname}</div>
-            <div style="font-size:10px;color:var(--gray-text);font-family:monospace;margin-bottom:6px;">{rid}-blueprint.html</div>
-            <div style="font-size:11px;color:var(--gray-text);">Detailed department blueprint with daily timeline, workflows, documents, KPIs</div>
+            <div style="font-size:28px;margin-bottom:10px;">{ricon}</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">{rname}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:8px;">{rid}-blueprint.html</div>
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Detailed department blueprint with daily timeline, workflows, documents, KPIs</div>
         </a>'''
 
     hub_html = f'''<div id="hubSection" class="section" style="display:none;">
@@ -371,41 +453,42 @@ def render_master_blueprint(data: dict) -> str:
 <title>{company} — Master Service Blueprint</title>
 <style>{BASE_CSS}
 .hub-card {{
-  background: #fff; border-radius: 10px; padding: 18px; box-shadow: var(--shadow);
-  border-left: 5px solid var(--blue-border); cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s; text-decoration: none; color: inherit; display: block;
+  background: var(--surface); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border); cursor: pointer;
+  transition: all 0.2s; text-decoration: none; color: inherit; display: block;
 }}
-.hub-card:hover {{ transform: translateY(-3px); box-shadow: var(--shadow-lg); }}
+.hub-card:hover {{ border-color: var(--brand); box-shadow: var(--shadow); transform: translateY(-2px); }}
 </style>
 </head>
 <body>
 
 <header class="main-header">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-    <div>
-      <h1>{company} — Master Service Blueprint</h1>
-      <div class="subtitle">{industry} | {num_roles} Roles | {num_stages} Stages | Complete Process Map</div>
-    </div>
-    <div style="display:flex;gap:8px;">
-      <button class="ctrl-btn" onclick="toggleView()" style="background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.3);font-weight:700;" id="viewToggle">Department Hub</button>
+  <div class="header-left">
+    <h1>{company}</h1>
+    <div class="subtitle">{industry} &middot; {num_roles} Roles &middot; {num_stages} Stages &middot; Complete Process Map</div>
+  </div>
+  <div class="header-right">
+    <span>Blueprint</span>
+    <div style="margin-top:8px;">
+      <button class="ctrl-btn" onclick="toggleView()" id="viewToggle">Department Hub</button>
     </div>
   </div>
 </header>
 
 <div class="legend-bar">
-  <strong style="font-size:12px;margin-right:8px;">Legend:</strong>
+  <span style="font-size:12px;font-weight:600;color:var(--text);margin-right:8px;">Legend</span>
   <div class="legend-item"><div class="legend-swatch activity"></div> Activity</div>
   <div class="legend-item"><div class="legend-swatch document"></div> Document</div>
   <div class="legend-item"><div class="legend-swatch approval"></div> Approval Gate</div>
   <div class="legend-item"><div class="legend-swatch critical"></div> Critical Gate</div>
   <div class="legend-item"><div class="legend-swatch handover"></div> Handover Point</div>
-  <div class="legend-item" style="margin-left:auto;opacity:0.6;">Click any cell to expand details</div>
+  <div class="legend-item" style="margin-left:auto;color:var(--text-muted);font-size:11px;">Click any cell to expand details</div>
 </div>
 
 <div class="controls-bar">
-  <button class="ctrl-btn" onclick="expandAll()">Expand All Cells</button>
-  <button class="ctrl-btn" onclick="collapseAll()">Collapse All Cells</button>
-  <button class="ctrl-btn" onclick="window.print()">Print / Save PDF</button>
+  <button class="ctrl-btn" onclick="expandAll()">Expand All</button>
+  <button class="ctrl-btn" onclick="collapseAll()">Collapse All</button>
+  <button class="ctrl-btn" onclick="window.print()">Print / PDF</button>
 </div>
 
 <div id="gridView">{grid_html}</div>
@@ -449,7 +532,7 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         responsibilities = _esc(t.get("key_responsibilities", ""))
         resp_html = ""
         if responsibilities:
-            resp_html = f'<div style="font-size:11px;color:var(--gray-text);margin-top:6px;padding-top:6px;border-top:1px solid var(--gray-mid);line-height:1.5;">{responsibilities}</div>'
+            resp_html = f'<div style="font-size:12px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.5;">{responsibilities}</div>'
         team_html += f'''<div class="metric-card">
             <h4>{role}</h4>
             <div class="value">{count}</div>
@@ -458,13 +541,13 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         </div>'''
 
     head_role = _esc(data.get("head_role", ""))
-    head_html = f'<div style="font-size:13px;color:var(--navy);margin-bottom:16px;font-weight:600;">Department Head: {head_role}</div>' if head_role else ""
+    head_html = f'<div style="font-size:13px;color:var(--text);margin-bottom:16px;font-weight:600;">Department Head: {head_role}</div>' if head_role else ""
 
     sections.append(f'''<div class="section active" id="sec-0">
         <div class="section-title">{dept} — Overview</div>
         <div class="section-desc">{mission}</div>
         {head_html}
-        <h3 style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:12px;">Team Structure</h3>
+        <h3 style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px;">Team Structure</h3>
         <div class="card-grid">{team_html}</div>
     </div>''')
 
@@ -478,18 +561,18 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         color = colors[i % len(colors)]
         acts_html = ""
         for act in block.get("activities", []):
-            aicon = act.get("icon", "")
+            aicon = _esc(act.get("icon", ""))
             atitle = _esc(act.get("title", ""))
             adesc = _esc(act.get("description", ""))
             tags_html = ""
             for tag in act.get("tags", []):
                 tag_str = tag if isinstance(tag, str) else str(tag)
-                tag_class = tag_str.lower().split()[0] if tag_str else "system"
+                tag_class = _css_class(tag_str.lower().split()[0] if tag_str else "system")
                 if tag_class not in ("doc", "system", "critical", "approval", "handover"):
                     tag_class = "system"
                 tags_html += f'<span class="tag {tag_class}">{_esc(tag_str).upper()}</span>'
             acts_html += f'''<div class="activity-item">
-                <div class="act-icon {color}">{aicon}</div>
+                <div class="act-icon {_css_class(color)}">{aicon}</div>
                 <div class="act-content">
                     <h4>{atitle}</h4>
                     <p>{adesc}</p>
@@ -498,7 +581,7 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
             </div>'''
 
         timeline_html += f'''<div class="time-block">
-            <div class="time-marker">{time.split(":")[0] if ":" in time else time[:3]}</div>
+            <div class="time-marker {_css_class(color)}">{time.split(":")[0] if ":" in time else time[:3]}</div>
             <div class="time-block-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">
                 <h3>{title}</h3>
                 <span class="time-range">{time}</span>
@@ -519,14 +602,14 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
     for wf in data.get("workflows", []):
         wf_title = _esc(wf.get("title", ""))
         wf_target = _esc(wf.get("target_time", ""))
-        target_badge = f'<span style="font-size:11px;background:var(--orange-card);color:var(--orange-border);padding:3px 10px;border-radius:4px;font-weight:600;">Target: {wf_target}</span>' if wf_target else ""
+        target_badge = f'<span style="font-size:11px;background:var(--amber-light);color:var(--amber);padding:4px 12px;border-radius:100px;font-weight:600;">Target: {wf_target}</span>' if wf_target else ""
 
         # Visual flow (horizontal steps)
         flow_html = ""
         for j, step in enumerate(wf.get("steps", [])):
             stitle = _esc(step.get("title", ""))
             srole = _esc(step.get("role", ""))
-            scolor = step.get("color", "blue")
+            scolor = _css_class(step.get("color", "blue"))
             stime = _esc(step.get("time", ""))
             if j > 0:
                 flow_html += '<div class="wf-arrow">&rarr;</div>'
@@ -545,7 +628,7 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
             stime = _esc(step.get("time", ""))
             sdocs = _esc(step.get("documents", ""))
             scriteria = _esc(step.get("decision_criteria", ""))
-            scolor = step.get("color", "blue")
+            scolor = _css_class(step.get("color", "blue"))
             extras = ""
             if sdocs:
                 extras += f'<div style="margin-top:4px;"><span class="tag doc">DOC</span> {sdocs}</div>'
@@ -555,7 +638,7 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
                 <td style="font-weight:600;white-space:nowrap;vertical-align:top;">{j+1}. {stitle}</td>
                 <td style="line-height:1.5;">{sdesc}{extras}</td>
                 <td style="white-space:nowrap;vertical-align:top;">{srole}</td>
-                <td style="white-space:nowrap;vertical-align:top;color:var(--orange-border);font-weight:600;">{stime}</td>
+                <td style="white-space:nowrap;vertical-align:top;color:var(--amber);font-weight:600;">{stime}</td>
             </tr>'''
 
         wf_html += f'''<div class="workflow-container">
@@ -593,20 +676,20 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         # Parse fields into individual items for better display
         field_items = [f.strip() for f in dfields.split(",") if f.strip()]
         if len(field_items) > 3:
-            fields_display = '<div style="font-size:10px;margin-top:6px;padding:8px;background:var(--gray-light);border-radius:4px;">'
-            fields_display += '<strong style="color:var(--navy);display:block;margin-bottom:4px;">Fields:</strong>'
-            fields_display += '<div style="display:flex;flex-wrap:wrap;gap:3px;">'
+            fields_display = '<div style="font-size:11px;margin-top:8px;padding:8px 10px;background:var(--bg);border-radius:6px;">'
+            fields_display += '<strong style="color:var(--text);display:block;margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:0.3px;">Fields</strong>'
+            fields_display += '<div style="display:flex;flex-wrap:wrap;gap:4px;">'
             for fi in field_items:
-                fields_display += f'<span style="background:#fff;border:1px solid var(--gray-mid);padding:1px 5px;border-radius:3px;font-size:9px;">{_esc(fi)}</span>'
+                fields_display += f'<span style="background:var(--surface);border:1px solid var(--border);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--text-secondary);">{_esc(fi)}</span>'
             fields_display += '</div></div>'
         else:
-            fields_display = f'<div style="font-size:10px;margin-top:6px;padding:6px;background:var(--gray-light);border-radius:4px;"><strong style="color:var(--navy);">Fields:</strong> {dfields}</div>'
+            fields_display = f'<div style="font-size:11px;margin-top:8px;padding:6px 10px;background:var(--bg);border-radius:6px;"><strong style="color:var(--text);font-size:10px;">Fields:</strong> {dfields}</div>'
 
         meta_badges = f'<span class="doc-freq">{dfreq}</span>'
         if dformat:
-            meta_badges += f' <span style="font-size:9px;background:var(--purple-card);color:var(--purple-border);padding:2px 6px;border-radius:3px;display:inline-block;margin-top:4px;font-weight:600;">{dformat}</span>'
+            meta_badges += f' <span style="font-size:10px;background:var(--purple-light);color:var(--purple);padding:3px 10px;border-radius:100px;display:inline-block;margin-top:6px;font-weight:600;">{dformat}</span>'
         if dretention:
-            meta_badges += f' <span style="font-size:9px;background:var(--orange-card);color:var(--orange-border);padding:2px 6px;border-radius:3px;display:inline-block;margin-top:4px;font-weight:600;">Retain: {dretention}</span>'
+            meta_badges += f' <span style="font-size:10px;background:var(--amber-light);color:var(--amber);padding:3px 10px;border-radius:100px;display:inline-block;margin-top:6px;font-weight:600;">Retain: {dretention}</span>'
 
         docs_html += f'''<div class="doc-card">
             <h4>{dname}</h4>
@@ -634,12 +717,12 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         kdesc = _esc(kpi.get("description", ""))
         kmeasure = _esc(kpi.get("measurement", ""))
         kaccount = _esc(kpi.get("accountable", ""))
-        kcolor = kpi.get("color", kpi_colors[i % len(kpi_colors)])
+        kcolor = _css_class(kpi.get("color", kpi_colors[i % len(kpi_colors)]))
         extras = ""
         if kmeasure:
-            extras += f'<div style="font-size:10px;color:var(--gray-text);margin-top:6px;padding-top:6px;border-top:1px dashed var(--gray-mid);"><strong>How:</strong> {kmeasure}</div>'
+            extras += f'<div style="font-size:11px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>How:</strong> {kmeasure}</div>'
         if kaccount:
-            extras += f'<div style="font-size:10px;color:var(--navy);margin-top:4px;font-weight:600;">Owner: {kaccount}</div>'
+            extras += f'<div style="font-size:11px;color:var(--text);margin-top:4px;font-weight:600;">Owner: {kaccount}</div>'
         kpi_html += f'''<div class="kpi-card {kcolor}">
             <div class="kpi-name">{kname}</div>
             <div class="kpi-value">{ktarget}</div>
@@ -680,7 +763,8 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
     # ── Tab 7: Escalation ──
     tabs.append("Escalation")
     esc_html = ""
-    esc_colors = ["#34A853", "#F09300", "#D93025", "#8E24AA"]
+    esc_colors = ["#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
+    esc_levels = ["level-1", "level-2", "level-3", "level-4"]
     for i, esc in enumerate(data.get("escalation_matrix", [])):
         elevel = esc.get("level", i + 1)
         etitle = _esc(esc.get("title", f"Level {elevel}"))
@@ -690,38 +774,41 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         eresolution = _esc(esc.get("resolution_time", ""))
         eauth = _esc(esc.get("authority", ""))
         ecolor = esc_colors[min(i, len(esc_colors) - 1)]
+        elevel_class = esc_levels[min(i, len(esc_levels) - 1)]
 
-        trigger_html = f'<div style="font-size:11px;margin-top:6px;padding:6px;background:var(--red-bg);border-radius:4px;"><strong style="color:var(--red-badge);">Trigger:</strong> {etrigger}</div>' if etrigger else ""
+        trigger_html = f'<div style="font-size:12px;margin-top:10px;padding:10px 12px;background:var(--amber-light);border-radius:8px;border:1px solid var(--amber-card);"><strong style="color:var(--amber);">Trigger:</strong> {etrigger}</div>' if etrigger else ""
 
         actions_html = ""
         for act in esc.get("actions", []):
-            actions_html += f'<div style="font-size:10px;color:var(--text-dark);margin-top:2px;padding-left:10px;">&#8226; {_esc(act)}</div>'
+            actions_html += f'<div style="font-size:12px;color:var(--text);margin-top:3px;padding-left:14px;">&#8226; {_esc(act)}</div>'
         if actions_html:
-            actions_html = f'<div style="margin-top:6px;"><strong style="font-size:10px;color:var(--navy);">Actions:</strong>{actions_html}</div>'
+            actions_html = f'<div style="margin-top:10px;"><strong style="font-size:12px;color:var(--text);">Actions:</strong>{actions_html}</div>'
 
         examples_html = ""
         for ex in esc.get("examples", []):
-            examples_html += f'<div style="font-size:10px;color:var(--gray-text);margin-top:2px;padding-left:10px;">&#8226; {_esc(ex)}</div>'
+            examples_html += f'<div style="font-size:12px;color:var(--text-secondary);margin-top:3px;padding-left:14px;">&#8226; {_esc(ex)}</div>'
         if examples_html:
-            examples_html = f'<div style="margin-top:6px;"><strong style="font-size:10px;color:var(--navy);">Examples:</strong>{examples_html}</div>'
+            examples_html = f'<div style="margin-top:10px;"><strong style="font-size:12px;color:var(--text);">Examples:</strong>{examples_html}</div>'
 
-        time_display = f'<span style="color:var(--orange-border);font-weight:600;">Response: {etime}</span>'
+        time_display = f'<span style="color:var(--amber);font-weight:600;">Response: {etime}</span>'
         if eresolution:
-            time_display += f' <span style="color:var(--gray-text);">|</span> <span style="color:var(--green-border);font-weight:600;">Resolution: {eresolution}</span>'
+            time_display += f' <span style="color:var(--text-muted);">&middot;</span> <span style="color:var(--green);font-weight:600;">Resolution: {eresolution}</span>'
 
-        esc_html += f'''<div style="background:#fff;border-radius:8px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px;border-left:5px solid {ecolor};">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        esc_html += f'''<div class="esc-card {elevel_class}">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-left:8px;">
                 <div>
-                    <span class="level-badge" style="background:{ecolor};display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;color:#fff;">Level {elevel}</span>
-                    <span style="font-size:14px;font-weight:700;color:var(--navy);margin-left:8px;">{etitle}</span>
+                    <span style="background:{ecolor};display:inline-block;padding:3px 12px;border-radius:100px;font-size:11px;font-weight:700;color:#fff;">Level {elevel}</span>
+                    <span style="font-size:14px;font-weight:700;color:var(--text);margin-left:10px;">{etitle}</span>
                 </div>
-                <div style="font-size:11px;">{time_display}</div>
+                <div style="font-size:12px;">{time_display}</div>
             </div>
-            <div style="font-size:12px;color:var(--gray-text);margin-top:8px;line-height:1.5;">{edesc}</div>
-            {trigger_html}
-            <div style="font-size:11px;color:var(--navy);margin-top:6px;font-weight:600;">Authority: {eauth}</div>
-            {actions_html}
-            {examples_html}
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:10px;line-height:1.5;padding-left:8px;">{edesc}</div>
+            <div style="padding-left:8px;">
+                {trigger_html}
+                <div style="font-size:12px;color:var(--text);margin-top:10px;font-weight:600;">Authority: {eauth}</div>
+                {actions_html}
+                {examples_html}
+            </div>
         </div>'''
 
     sections.append(f'''<div class="section" id="sec-6">
@@ -741,9 +828,9 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
         cdocs = _esc(ci.get("documentation", ""))
         extras = ""
         if cresp:
-            extras += f'<div style="font-size:10px;color:var(--navy);margin-top:6px;font-weight:600;">Responsible: {cresp}</div>'
+            extras += f'<div style="font-size:11px;color:var(--text);margin-top:8px;font-weight:600;">Responsible: {cresp}</div>'
         if cdocs:
-            extras += f'<div style="font-size:10px;color:var(--gray-text);margin-top:4px;padding:4px 6px;background:var(--gray-light);border-radius:3px;"><strong>Records:</strong> {cdocs}</div>'
+            extras += f'<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;padding:6px 8px;background:var(--bg);border-radius:6px;"><strong>Records:</strong> {cdocs}</div>'
         comp_html += f'''<div class="compliance-card">
             <h4>{cname}</h4>
             <p>{cdesc}</p>
@@ -777,11 +864,16 @@ def render_department_blueprint(data: dict, company_name: str) -> str:
 <body>
 
 <header class="main-header">
-  <div style="font-size:12px;opacity:0.7;margin-bottom:4px;">
-    <a href="service-blueprint.html" style="color:#FFB74D;text-decoration:none;">Master Blueprint</a> &rsaquo; {dept}
+  <div class="header-left">
+    <div class="breadcrumb">
+      <a href="service-blueprint.html">Master Blueprint</a>
+      <span style="margin:0 6px;color:var(--text-muted);">/</span>
+      <span>{dept}</span>
+    </div>
+    <h1>{dept}</h1>
+    <div class="subtitle">{company} &middot; Department Blueprint</div>
   </div>
-  <h1>{dept}</h1>
-  <div class="subtitle">{company} | Department Blueprint</div>
+  <div class="header-right">Blueprint</div>
 </header>
 
 <nav class="nav-tabs">{tab_nav}</nav>
@@ -823,19 +915,25 @@ def render_glossary(data: dict, company_name: str) -> str:
     cat_colors = {"Technical": "blue", "Commercial": "green", "Legal": "orange", "Safety": "red",
                   "Operations": "teal", "Finance": "purple", "HR": "purple", "IT": "blue",
                   "Marketing": "green", "General": "blue"}
+    color_map = {"blue": "--brand", "green": "--green", "orange": "--amber", "red": "--red",
+                 "purple": "--purple", "teal": "--teal"}
     for cat, cat_terms in sorted(categories.items()):
         color = cat_colors.get(cat, "blue")
-        glossary_html += f'<h3 style="font-size:14px;font-weight:700;color:var(--navy);margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--{color}-border);">{_esc(cat)} ({len(cat_terms)} terms)</h3>'
+        css_var = color_map.get(color, "--brand")
+        glossary_html += f'<h3 style="font-size:14px;font-weight:700;color:var(--text);margin:24px 0 10px;padding-bottom:8px;border-bottom:2px solid var({css_var});">{_esc(cat)} ({len(cat_terms)} terms)</h3>'
         glossary_html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-bottom:16px;">'
         for t in sorted(cat_terms, key=lambda x: x.get("term", "")):
             term = _esc(t.get("term", ""))
             full_form = _esc(t.get("full_form", ""))
             definition = _esc(t.get("definition", ""))
-            abbr_html = f'<div style="font-size:10px;color:var(--{color}-border);font-weight:600;">{full_form}</div>' if full_form and full_form != term else ""
-            glossary_html += f'''<div style="background:#fff;border-radius:6px;padding:10px 12px;box-shadow:var(--shadow);border-left:3px solid var(--{color}-border);">
-                <div style="font-size:13px;font-weight:700;color:var(--navy);">{term}</div>
-                {abbr_html}
-                <div style="font-size:11px;color:var(--gray-text);margin-top:4px;line-height:1.5;">{definition}</div>
+            abbr_html = f'<div style="font-size:11px;color:var({css_var});font-weight:600;">{full_form}</div>' if full_form and full_form != term else ""
+            glossary_html += f'''<div style="background:var(--surface);border-radius:8px;padding:12px 14px;box-shadow:var(--shadow-sm);border:1px solid var(--border);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:0;left:0;bottom:0;width:3px;background:var({css_var});"></div>
+                <div style="padding-left:4px;">
+                    <div style="font-size:13px;font-weight:700;color:var(--text);">{term}</div>
+                    {abbr_html}
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5;">{definition}</div>
+                </div>
             </div>'''
         glossary_html += '</div>'
 
@@ -857,23 +955,23 @@ def render_glossary(data: dict, company_name: str) -> str:
         depts = proc.get("departments_involved", [])
         if isinstance(depts, str):
             depts = [depts]
-        dept_badges = " ".join(f'<span style="font-size:9px;background:var(--blue-card);color:var(--blue-border);padding:2px 6px;border-radius:3px;font-weight:600;">{_esc(d)}</span>' for d in depts)
+        dept_badges = " ".join(f'<span style="font-size:10px;background:var(--brand-light);color:var(--brand);padding:3px 10px;border-radius:100px;font-weight:600;">{_esc(d)}</span>' for d in depts)
         steps = proc.get("key_steps", [])
         if isinstance(steps, str):
             steps = [steps]
         steps_html = ""
         for j, step in enumerate(steps):
-            steps_html += f'<div style="font-size:11px;padding:3px 0;color:var(--text-dark);">{j+1}. {_esc(step)}</div>'
+            steps_html += f'<div style="font-size:12px;padding:3px 0;color:var(--text);">{j+1}. {_esc(step)}</div>'
 
         xdept_html += f'''<div class="workflow-container">
             <div class="workflow-title">{pname}</div>
-            <div style="font-size:12px;color:var(--gray-text);margin-bottom:8px;">{pdesc}</div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
-                <div style="font-size:10px;"><strong>Trigger:</strong> {ptrigger}</div>
-                <div style="font-size:10px;"><strong>Frequency:</strong> {pfreq}</div>
-                <div style="font-size:10px;"><strong>Output:</strong> {poutput}</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;">{pdesc}</div>
+            <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+                <div style="font-size:11px;"><strong>Trigger:</strong> {ptrigger}</div>
+                <div style="font-size:11px;"><strong>Frequency:</strong> {pfreq}</div>
+                <div style="font-size:11px;"><strong>Output:</strong> {poutput}</div>
             </div>
-            <div style="margin-bottom:8px;">{dept_badges}</div>
+            <div style="margin-bottom:10px;">{dept_badges}</div>
             {steps_html}
         </div>'''
 
@@ -892,12 +990,13 @@ def render_glossary(data: dict, company_name: str) -> str:
         pdesc = _esc(pol.get("description", ""))
         penforce = _esc(pol.get("enforcement", ""))
         pconseq = _esc(pol.get("consequences", ""))
-        pol_html += f'''<div class="doc-card" style="border-left-color:var(--navy);">
+        pol_html += f'''<div class="doc-card" style="overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--brand);"></div>
             <h4>{pname}</h4>
-            <div style="font-size:9px;background:var(--blue-card);color:var(--blue-border);padding:2px 6px;border-radius:3px;display:inline-block;font-weight:600;margin-bottom:4px;">Scope: {pscope}</div>
+            <span style="font-size:10px;background:var(--brand-light);color:var(--brand);padding:3px 10px;border-radius:100px;display:inline-block;font-weight:600;margin-bottom:6px;">Scope: {pscope}</span>
             <div class="doc-desc">{pdesc}</div>
-            <div style="font-size:10px;color:var(--navy);margin-top:6px;"><strong>Enforcement:</strong> {penforce}</div>
-            <div style="font-size:10px;color:var(--red-badge);margin-top:4px;"><strong>Violation:</strong> {pconseq}</div>
+            <div style="font-size:11px;color:var(--text);margin-top:8px;"><strong>Enforcement:</strong> {penforce}</div>
+            <div style="font-size:11px;color:var(--red);margin-top:4px;"><strong>Violation:</strong> {pconseq}</div>
         </div>'''
     pol_html += '</div>'
 
@@ -920,17 +1019,17 @@ def render_glossary(data: dict, company_name: str) -> str:
         tech_cats.setdefault(cat, []).append(t)
 
     for cat, items in sorted(tech_cats.items()):
-        tech_html += f'<h3 style="font-size:14px;font-weight:700;color:var(--navy);margin:16px 0 10px;">{_esc(cat)}</h3>'
+        tech_html += f'<h3 style="font-size:14px;font-weight:700;color:var(--text);margin:20px 0 10px;">{_esc(cat)}</h3>'
         tech_html += '<table class="data-table"><thead><tr><th>System</th><th>Purpose</th><th>Users</th><th>Integrations</th><th>Status</th></tr></thead><tbody>'
         for t in items:
             status = _esc(t.get("status", ""))
-            status_color = {"Current": "var(--green-border)", "Planned": "var(--orange-border)", "Recommended": "var(--blue-border)"}.get(status, "var(--gray-text)")
+            status_color = {"Current": "var(--green)", "Planned": "var(--amber)", "Recommended": "var(--brand)"}.get(status, "var(--text-secondary)")
             tech_html += f'''<tr>
                 <td style="font-weight:600;">{_esc(t.get("system", ""))}</td>
                 <td>{_esc(t.get("purpose", ""))}</td>
                 <td>{_esc(t.get("users", ""))}</td>
-                <td style="font-size:11px;">{_esc(t.get("integration_points", ""))}</td>
-                <td><span style="color:{status_color};font-weight:600;font-size:11px;">{status}</span></td>
+                <td style="font-size:12px;">{_esc(t.get("integration_points", ""))}</td>
+                <td><span style="color:{status_color};font-weight:600;font-size:12px;">{status}</span></td>
             </tr>'''
         tech_html += '</tbody></table>'
 
@@ -943,20 +1042,20 @@ def render_glossary(data: dict, company_name: str) -> str:
     # ── Tab 5: Risk Register ──
     tabs.append("Risk Register")
     risk_html = '<table class="data-table"><thead><tr><th>Risk</th><th>Category</th><th style="text-align:center;">Likelihood</th><th style="text-align:center;">Impact</th><th>Mitigation</th><th>Contingency</th><th>Owner</th></tr></thead><tbody>'
-    risk_colors = {"High": "var(--red-badge)", "Medium": "var(--orange-border)", "Low": "var(--green-border)"}
+    risk_colors = {"High": "var(--red)", "Medium": "var(--amber)", "Low": "var(--green)"}
     for r in data.get("risk_register", []):
         likelihood = _esc(r.get("likelihood", ""))
         impact = _esc(r.get("impact", ""))
-        lcolor = risk_colors.get(likelihood, "var(--gray-text)")
-        icolor = risk_colors.get(impact, "var(--gray-text)")
+        lcolor = risk_colors.get(likelihood, "var(--text-secondary)")
+        icolor = risk_colors.get(impact, "var(--text-secondary)")
         risk_html += f'''<tr>
             <td style="font-weight:600;">{_esc(r.get("risk", ""))}</td>
-            <td><span style="font-size:10px;background:var(--blue-card);color:var(--blue-border);padding:2px 5px;border-radius:3px;">{_esc(r.get("category", ""))}</span></td>
+            <td><span style="font-size:10px;background:var(--brand-light);color:var(--brand);padding:3px 10px;border-radius:100px;font-weight:600;">{_esc(r.get("category", ""))}</span></td>
             <td style="text-align:center;"><span style="color:{lcolor};font-weight:700;">{likelihood}</span></td>
             <td style="text-align:center;"><span style="color:{icolor};font-weight:700;">{impact}</span></td>
-            <td style="font-size:11px;">{_esc(r.get("mitigation", ""))}</td>
-            <td style="font-size:11px;">{_esc(r.get("contingency", ""))}</td>
-            <td style="font-size:11px;white-space:nowrap;">{_esc(r.get("owner", ""))}</td>
+            <td style="font-size:12px;">{_esc(r.get("mitigation", ""))}</td>
+            <td style="font-size:12px;">{_esc(r.get("contingency", ""))}</td>
+            <td style="font-size:12px;white-space:nowrap;">{_esc(r.get("owner", ""))}</td>
         </tr>'''
     risk_html += '</tbody></table>'
 
@@ -970,17 +1069,23 @@ def render_glossary(data: dict, company_name: str) -> str:
     tabs.append("Meetings")
     meet_html = '<div class="doc-grid">'
     freq_colors = {"Daily": "red", "Weekly": "orange", "Monthly": "blue", "Quarterly": "purple", "Annual": "teal"}
+    freq_css = {"red": "--red", "orange": "--amber", "blue": "--brand", "purple": "--purple", "teal": "--teal"}
     for m in data.get("meeting_cadences", []):
         mfreq = _esc(m.get("frequency", ""))
         fcolor_key = mfreq.split("/")[0].strip() if "/" in mfreq else mfreq
         fcolor = freq_colors.get(fcolor_key, "blue")
-        meet_html += f'''<div class="doc-card" style="border-left-color:var(--{fcolor}-border);">
+        fcss = freq_css.get(fcolor, "--brand")
+        # Use card background colors
+        card_bg_map = {"red": "--red-light", "orange": "--amber-light", "blue": "--brand-light", "purple": "--purple-light", "teal": "--teal-light"}
+        fbg = card_bg_map.get(fcolor, "--brand-light")
+        meet_html += f'''<div class="doc-card" style="overflow:hidden;">
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var({fcss});"></div>
             <h4>{_esc(m.get("meeting", ""))}</h4>
-            <span style="font-size:9px;background:var(--{fcolor}-card);color:var(--{fcolor}-border);padding:2px 6px;border-radius:3px;font-weight:600;">{mfreq}</span>
-            <span style="font-size:9px;background:var(--gray-light);color:var(--gray-text);padding:2px 6px;border-radius:3px;margin-left:4px;">{_esc(m.get("duration", ""))}</span>
-            <div style="font-size:11px;margin-top:6px;"><strong>Participants:</strong> {_esc(m.get("participants", ""))}</div>
-            <div style="font-size:11px;margin-top:4px;color:var(--gray-text);"><strong>Agenda:</strong> {_esc(m.get("agenda", ""))}</div>
-            <div style="font-size:10px;margin-top:4px;color:var(--green-border);"><strong>Output:</strong> {_esc(m.get("output", ""))}</div>
+            <span style="font-size:10px;background:var({fbg});color:var({fcss});padding:3px 10px;border-radius:100px;font-weight:600;">{mfreq}</span>
+            <span style="font-size:10px;background:var(--bg);color:var(--text-secondary);padding:3px 10px;border-radius:100px;margin-left:4px;">{_esc(m.get("duration", ""))}</span>
+            <div style="font-size:12px;margin-top:8px;"><strong>Participants:</strong> {_esc(m.get("participants", ""))}</div>
+            <div style="font-size:12px;margin-top:4px;color:var(--text-secondary);"><strong>Agenda:</strong> {_esc(m.get("agenda", ""))}</div>
+            <div style="font-size:11px;margin-top:4px;color:var(--green);"><strong>Output:</strong> {_esc(m.get("output", ""))}</div>
         </div>'''
     meet_html += '</div>'
 
@@ -997,25 +1102,25 @@ def render_glossary(data: dict, company_name: str) -> str:
     # Customer segments
     segs = data.get("customer_segmentation", [])
     if segs:
-        market_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:12px;">Customer Segments</h3>'
+        market_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">Customer Segments</h3>'
         market_html += '<div class="card-grid">'
         seg_colors = ["blue", "green", "orange", "purple", "teal", "red"]
         for i, seg in enumerate(segs):
             color = seg_colors[i % len(seg_colors)]
             market_html += f'''<div class="metric-card {color}">
                 <h4>{_esc(seg.get("segment", ""))}</h4>
-                <div style="font-size:12px;color:var(--text-dark);margin-top:4px;">{_esc(seg.get("description", ""))}</div>
-                <div style="font-size:11px;color:var(--gray-text);margin-top:6px;"><strong>Needs:</strong> {_esc(seg.get("needs", ""))}</div>
-                <div style="font-size:11px;color:var(--gray-text);margin-top:3px;"><strong>Buying Pattern:</strong> {_esc(seg.get("buying_pattern", ""))}</div>
-                <div style="font-size:11px;color:var(--gray-text);margin-top:3px;"><strong>Service Level:</strong> {_esc(seg.get("service_level", ""))}</div>
-                <div style="font-size:12px;font-weight:700;color:var(--navy);margin-top:6px;">{_esc(seg.get("revenue_share", ""))}</div>
+                <div style="font-size:13px;color:var(--text);margin-top:6px;">{_esc(seg.get("description", ""))}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:8px;"><strong>Needs:</strong> {_esc(seg.get("needs", ""))}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;"><strong>Buying Pattern:</strong> {_esc(seg.get("buying_pattern", ""))}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;"><strong>Service Level:</strong> {_esc(seg.get("service_level", ""))}</div>
+                <div style="font-size:13px;font-weight:700;color:var(--text);margin-top:8px;">{_esc(seg.get("revenue_share", ""))}</div>
             </div>'''
         market_html += '</div>'
 
     # Seasonal patterns
     seasons = data.get("seasonal_patterns", [])
     if seasons:
-        market_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin:24px 0 12px;">Seasonal Patterns</h3>'
+        market_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin:28px 0 12px;">Seasonal Patterns</h3>'
         market_html += '<table class="data-table"><thead><tr><th>Period</th><th>Pattern</th><th>Impact</th><th>Preparation</th></tr></thead><tbody>'
         for s in seasons:
             market_html += f'''<tr>
@@ -1029,15 +1134,16 @@ def render_glossary(data: dict, company_name: str) -> str:
     # Vendor relationships
     vendors = data.get("vendor_relationships", [])
     if vendors:
-        market_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin:24px 0 12px;">Vendor & Partner Relationships</h3>'
+        market_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin:28px 0 12px;">Vendor & Partner Relationships</h3>'
         market_html += '<div class="doc-grid">'
         for v in vendors:
-            market_html += f'''<div class="doc-card" style="border-left-color:var(--teal);">
+            market_html += f'''<div class="doc-card" style="overflow:hidden;">
+                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--teal);"></div>
                 <h4>{_esc(v.get("vendor_type", ""))}</h4>
                 <div class="doc-desc">{_esc(v.get("examples", ""))}</div>
-                <div style="font-size:11px;margin-top:4px;"><strong>Relationship:</strong> {_esc(v.get("relationship", ""))}</div>
-                <div style="font-size:11px;margin-top:3px;color:var(--gray-text);"><strong>Terms:</strong> {_esc(v.get("key_terms", ""))}</div>
-                <div style="font-size:10px;margin-top:3px;color:var(--blue-border);"><strong>Management:</strong> {_esc(v.get("management", ""))}</div>
+                <div style="font-size:12px;margin-top:6px;"><strong>Relationship:</strong> {_esc(v.get("relationship", ""))}</div>
+                <div style="font-size:12px;margin-top:3px;color:var(--text-secondary);"><strong>Terms:</strong> {_esc(v.get("key_terms", ""))}</div>
+                <div style="font-size:11px;margin-top:3px;color:var(--brand);"><strong>Management:</strong> {_esc(v.get("management", ""))}</div>
             </div>'''
         market_html += '</div>'
 
@@ -1054,7 +1160,7 @@ def render_glossary(data: dict, company_name: str) -> str:
     # Career paths
     careers = data.get("career_paths", [])
     if careers:
-        people_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:12px;">Career Paths</h3>'
+        people_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">Career Paths</h3>'
         for cp in careers:
             track = _esc(cp.get("track", ""))
             levels = cp.get("levels", [])
@@ -1065,26 +1171,27 @@ def render_glossary(data: dict, company_name: str) -> str:
             path_steps = ""
             for j, level in enumerate(levels):
                 if j > 0:
-                    path_steps += '<span style="color:var(--navy);font-weight:700;margin:0 6px;">&rarr;</span>'
-                path_steps += f'<span style="background:var(--blue-card);border:1px solid var(--blue-border);padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;color:var(--navy);">{_esc(level)}</span>'
-            people_html += f'''<div style="background:#fff;border-radius:8px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px;border-left:4px solid var(--purple-border);">
-                <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:8px;">{track}</div>
-                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px;">{path_steps}</div>
-                <div style="font-size:11px;color:var(--gray-text);"><strong>Progression:</strong> {progression}</div>
-                <div style="font-size:11px;color:var(--gray-text);margin-top:3px;"><strong>Skills:</strong> {skills}</div>
+                    path_steps += '<span style="color:var(--text-muted);font-weight:400;margin:0 6px;">&rarr;</span>'
+                path_steps += f'<span style="background:var(--brand-light);border:1px solid var(--brand);padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;color:var(--brand);">{_esc(level)}</span>'
+            people_html += f'''<div style="background:var(--surface);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm);margin-bottom:12px;border:1px solid var(--border);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--purple);"></div>
+                <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px;">{track}</div>
+                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px;">{path_steps}</div>
+                <div style="font-size:12px;color:var(--text-secondary);"><strong>Progression:</strong> {progression}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;"><strong>Skills:</strong> {skills}</div>
             </div>'''
 
     # Insurance
     insurance = data.get("insurance_requirements", [])
     if insurance:
-        people_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin:24px 0 12px;">Insurance Requirements</h3>'
+        people_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin:28px 0 12px;">Insurance Requirements</h3>'
         people_html += '<table class="data-table"><thead><tr><th>Type</th><th>Coverage</th><th>Required By</th><th>Typical Value</th></tr></thead><tbody>'
         for ins in insurance:
             people_html += f'''<tr>
                 <td style="font-weight:600;">{_esc(ins.get("type", ""))}</td>
                 <td>{_esc(ins.get("coverage", ""))}</td>
                 <td>{_esc(ins.get("required_by", ""))}</td>
-                <td style="font-weight:600;color:var(--navy);">{_esc(ins.get("typical_value", ""))}</td>
+                <td style="font-weight:600;color:var(--text);">{_esc(ins.get("typical_value", ""))}</td>
             </tr>'''
         people_html += '</tbody></table>'
 
@@ -1100,7 +1207,7 @@ def render_glossary(data: dict, company_name: str) -> str:
 
     benchmarks = data.get("industry_benchmarks", [])
     if benchmarks:
-        bench_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:12px;">Industry Benchmarks</h3>'
+        bench_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">Industry Benchmarks</h3>'
         bench_html += '<div class="kpi-grid">'
         bcolors = ["green", "blue", "orange", "purple", "teal", "red"]
         for i, b in enumerate(benchmarks):
@@ -1108,22 +1215,23 @@ def render_glossary(data: dict, company_name: str) -> str:
             bench_html += f'''<div class="kpi-card {color}">
                 <div class="kpi-name">{_esc(b.get("metric", ""))}</div>
                 <div class="kpi-value">{_esc(b.get("value", ""))}</div>
-                <div style="font-size:10px;color:var(--gray-text);margin-top:4px;">{_esc(b.get("context", ""))}</div>
-                <div style="font-size:9px;color:var(--blue-border);margin-top:4px;">Source: {_esc(b.get("source", ""))}</div>
+                <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;">{_esc(b.get("context", ""))}</div>
+                <div style="font-size:10px;color:var(--brand);margin-top:4px;">Source: {_esc(b.get("source", ""))}</div>
             </div>'''
         bench_html += '</div>'
 
     mistakes = data.get("common_mistakes", [])
     if mistakes:
-        bench_html += '<h3 style="font-size:15px;font-weight:700;color:var(--navy);margin:24px 0 12px;">Common Mistakes to Avoid</h3>'
+        bench_html += '<h3 style="font-size:15px;font-weight:700;color:var(--text);margin:28px 0 12px;">Common Mistakes to Avoid</h3>'
         for m in mistakes:
-            bench_html += f'''<div style="background:#fff;border-radius:8px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:8px;border-left:4px solid var(--red-badge);">
-                <div style="font-size:13px;font-weight:600;color:var(--red-badge);">{_esc(m.get("mistake", ""))}</div>
-                <div style="font-size:11px;color:var(--gray-text);margin-top:4px;">
-                    <span style="background:var(--blue-card);padding:1px 5px;border-radius:3px;font-size:9px;font-weight:600;color:var(--blue-border);">{_esc(m.get("department", ""))}</span>
-                    <strong style="margin-left:6px;">Impact:</strong> {_esc(m.get("consequence", ""))}
+            bench_html += f'''<div style="background:var(--surface);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);margin-bottom:10px;border:1px solid var(--border);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--red);"></div>
+                <div style="font-size:13px;font-weight:600;color:var(--red);">{_esc(m.get("mistake", ""))}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
+                    <span style="font-size:10px;background:var(--brand-light);padding:3px 10px;border-radius:100px;font-weight:600;color:var(--brand);">{_esc(m.get("department", ""))}</span>
+                    <strong style="margin-left:8px;">Impact:</strong> {_esc(m.get("consequence", ""))}
                 </div>
-                <div style="font-size:11px;color:var(--green-border);margin-top:4px;"><strong>Prevention:</strong> {_esc(m.get("prevention", ""))}</div>
+                <div style="font-size:12px;color:var(--green);margin-top:6px;"><strong>Prevention:</strong> {_esc(m.get("prevention", ""))}</div>
             </div>'''
 
     sections.append(f'''<div class="section" id="sec-8">
@@ -1151,11 +1259,16 @@ def render_glossary(data: dict, company_name: str) -> str:
 <body>
 
 <header class="main-header">
-  <div style="font-size:12px;opacity:0.7;margin-bottom:4px;">
-    <a href="service-blueprint.html" style="color:#FFB74D;text-decoration:none;">Master Blueprint</a> &rsaquo; Glossary & Appendix
+  <div class="header-left">
+    <div class="breadcrumb">
+      <a href="service-blueprint.html">Master Blueprint</a>
+      <span style="margin:0 6px;color:var(--text-muted);">/</span>
+      <span>Glossary & Appendix</span>
+    </div>
+    <h1>Glossary & Appendix</h1>
+    <div class="subtitle">{company} &middot; Complete Reference</div>
   </div>
-  <h1>Glossary & Appendix</h1>
-  <div class="subtitle">{company} | Everything Else — The Complete Reference</div>
+  <div class="header-right">Blueprint</div>
 </header>
 
 <nav class="nav-tabs">{tab_nav}</nav>
