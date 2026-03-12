@@ -10,7 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY config.py generator.py renderer.py research.py questionnaire.py server.py ./
 COPY start.sh .
 COPY static/ static/
-COPY templates/ templates/
 
 # Create runtime directories
 RUN mkdir -p output workspace
