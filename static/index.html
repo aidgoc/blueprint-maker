@@ -320,24 +320,494 @@ body {
 
 .hidden { display: none !important; }
 
+/* ── Toast Notifications ── */
+.toast-container {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  display: flex; flex-direction: column-reverse; gap: 8px;
+}
+.toast {
+  padding: 14px 20px; border-radius: 10px; font-size: 13px; font-weight: 500;
+  color: #fff; box-shadow: var(--shadow-lg); animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+  max-width: 360px; font-family: inherit;
+}
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+.toast.info { background: var(--brand); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(12px); } }
+
+/* ── Auth Screen ── */
+.auth-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 80px); padding: 0 24px 60px;
+}
+.auth-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 40px 36px; max-width: 420px; width: 100%; box-shadow: var(--shadow);
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.auth-wordmark {
+  font-size: 28px; font-weight: 700; color: var(--text); text-align: center;
+  letter-spacing: -0.8px; margin-bottom: 6px;
+}
+.auth-tagline {
+  font-size: 14px; color: var(--text-secondary); text-align: center; margin-bottom: 32px;
+}
+.google-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 12px 20px; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.google-btn:hover { background: #F9FAFB; border-color: #D1D5DB; box-shadow: var(--shadow-sm); }
+.google-btn svg { width: 18px; height: 18px; }
+.auth-divider {
+  display: flex; align-items: center; gap: 16px; margin: 24px 0;
+}
+.auth-divider span { font-size: 12px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.auth-divider::before, .auth-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+.auth-input {
+  width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 14px; font-family: inherit; outline: none; color: var(--text);
+  background: var(--surface); transition: border-color 0.2s, box-shadow 0.2s;
+}
+.auth-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.auth-input::placeholder { color: var(--text-muted); }
+.auth-submit {
+  width: 100%; padding: 12px 20px; background: var(--brand); color: #fff; border: none;
+  border-radius: 100px; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; font-family: inherit; margin-top: 4px;
+}
+.auth-submit:hover { background: var(--brand-hover); }
+.auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-error {
+  color: var(--red); font-size: 13px; text-align: center; min-height: 20px; margin-top: 4px;
+}
+.auth-toggle {
+  text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-secondary);
+}
+.auth-toggle a {
+  color: var(--brand); cursor: pointer; font-weight: 600; text-decoration: none;
+}
+.auth-toggle a:hover { text-decoration: underline; }
+.auth-forgot {
+  text-align: right; margin-top: -4px;
+}
+.auth-forgot a {
+  font-size: 12px; color: var(--brand); cursor: pointer; text-decoration: none; font-weight: 500;
+}
+.auth-forgot a:hover { text-decoration: underline; }
+.auth-skip {
+  text-align: center; margin-top: 16px;
+}
+.auth-skip a {
+  font-size: 13px; color: var(--text-muted); cursor: pointer; text-decoration: none;
+}
+.auth-skip a:hover { color: var(--text-secondary); text-decoration: underline; }
+
+/* ── Dashboard ── */
+.dash-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--surface);
+  position: sticky; top: 0; z-index: 100;
+}
+.dash-header .wordmark { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+.dash-user-area { display: flex; align-items: center; gap: 12px; position: relative; }
+.dash-avatar {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--brand);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600; cursor: pointer; overflow: hidden;
+  border: 2px solid var(--border); transition: border-color 0.15s;
+}
+.dash-avatar:hover { border-color: var(--brand); }
+.dash-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dash-user-name {
+  font-size: 14px; font-weight: 500; color: var(--text); cursor: pointer;
+}
+.dash-dropdown {
+  position: absolute; top: 48px; right: 0; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg);
+  min-width: 180px; padding: 6px 0; z-index: 200;
+  animation: slideUp 0.15s ease;
+}
+.dash-dropdown-item {
+  padding: 10px 16px; font-size: 13px; color: var(--text); cursor: pointer;
+  transition: background 0.1s; display: block; width: 100%; text-align: left;
+  border: none; background: none; font-family: inherit;
+}
+.dash-dropdown-item:hover { background: var(--brand-light); }
+.dash-dropdown-item.danger { color: var(--red); }
+
+.dash-content { max-width: 1100px; margin: 0 auto; padding: 32px; }
+
+.dash-welcome {
+  font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.4px;
+  margin-bottom: 24px;
+}
+
+.dash-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px;
+}
+.dash-stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px 24px;
+}
+.dash-stat-value {
+  font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -0.5px;
+}
+.dash-stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-top: 4px; }
+
+.dash-action-bar {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.dash-new-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 24px; background: var(--brand); color: #fff; border: none;
+  border-radius: 100px; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
+}
+.dash-new-btn:hover { background: var(--brand-hover); transform: translateY(-1px); box-shadow: var(--shadow); }
+.dash-search {
+  flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid var(--border);
+  border-radius: 10px; font-size: 14px; outline: none; font-family: inherit;
+  color: var(--text); background: var(--surface); transition: border-color 0.2s;
+}
+.dash-search:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.dash-view-toggle {
+  display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.dash-view-btn {
+  padding: 8px 12px; background: var(--surface); border: none; cursor: pointer;
+  color: var(--text-muted); transition: all 0.15s; display: flex; align-items: center;
+}
+.dash-view-btn.active { background: var(--brand-light); color: var(--brand); }
+.dash-view-btn:hover { color: var(--text); }
+.dash-view-btn + .dash-view-btn { border-left: 1px solid var(--border); }
+
+/* Folders */
+.dash-folders {
+  display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center;
+}
+.dash-folder-card {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; transition: all 0.15s; font-size: 13px; font-weight: 500;
+  color: var(--text); border-left: 3px solid var(--brand);
+}
+.dash-folder-card:hover { box-shadow: var(--shadow); border-color: var(--brand); }
+.dash-folder-card.active { background: var(--brand-light); border-color: var(--brand); }
+.dash-folder-count {
+  font-size: 11px; color: var(--text-muted); background: var(--bg);
+  padding: 2px 8px; border-radius: 100px; font-weight: 600;
+}
+.dash-folder-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.dash-add-folder {
+  display: flex; align-items: center; gap: 6px; padding: 10px 16px;
+  background: none; border: 1px dashed var(--border); border-radius: 10px;
+  cursor: pointer; font-size: 13px; color: var(--text-muted); font-family: inherit;
+  transition: all 0.15s;
+}
+.dash-add-folder:hover { border-color: var(--brand); color: var(--brand); }
+
+/* Blueprint grid */
+.dash-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.bp-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; transition: all 0.15s; cursor: pointer; position: relative;
+}
+.bp-card:hover { box-shadow: var(--shadow); border-color: #D1D5DB; }
+.bp-card-title {
+  font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bp-card-date { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+.bp-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bp-badge {
+  font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 600;
+}
+.bp-badge.completed { background: var(--green-light); color: #065F46; }
+.bp-badge.generating { background: #FEF3C7; color: #92400E; }
+.bp-badge.failed { background: #FEE2E2; color: #991B1B; }
+.bp-badge.folder-tag { background: var(--brand-light); color: var(--brand); }
+.bp-card-actions {
+  position: absolute; top: 12px; right: 12px;
+}
+.bp-menu-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: none; background: none;
+  cursor: pointer; color: var(--text-muted); font-size: 16px; display: flex;
+  align-items: center; justify-content: center; transition: all 0.15s;
+}
+.bp-menu-btn:hover { background: var(--bg); color: var(--text); }
+.bp-menu {
+  position: absolute; top: 32px; right: 0; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg);
+  min-width: 180px; padding: 6px 0; z-index: 50;
+}
+.bp-menu-item {
+  padding: 9px 16px; font-size: 13px; color: var(--text); cursor: pointer;
+  transition: background 0.1s; display: block; width: 100%; text-align: left;
+  border: none; background: none; font-family: inherit;
+}
+.bp-menu-item:hover { background: var(--brand-light); }
+.bp-menu-item.danger { color: var(--red); }
+.bp-menu-item.danger:hover { background: #FEE2E2; }
+.bp-share-icon { color: var(--brand); font-size: 12px; }
+
+/* List view */
+.dash-list { width: 100%; }
+.dash-list-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.dash-list-table th {
+  text-align: left; padding: 10px 16px; font-size: 11px; font-weight: 600;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.dash-list-table td {
+  padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--text);
+}
+.dash-list-table tr:hover td { background: var(--brand-light); }
+.dash-list-table .td-name { font-weight: 600; cursor: pointer; }
+.dash-list-table .td-name:hover { color: var(--brand); }
+
+/* Empty state */
+.dash-empty {
+  text-align: center; padding: 80px 24px;
+}
+.dash-empty-icon {
+  width: 64px; height: 64px; margin: 0 auto 20px; background: var(--brand-light);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+}
+.dash-empty h3 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.dash-empty p { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); z-index: 500; display: flex;
+  align-items: center; justify-content: center; padding: 24px;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--surface); border-radius: 14px; padding: 28px;
+  max-width: 420px; width: 100%; box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s ease;
+}
+.modal h3 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+.modal-input {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; outline: none; font-family: inherit; margin-bottom: 12px;
+  color: var(--text);
+}
+.modal-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.modal-colors { display: flex; gap: 8px; margin-bottom: 16px; }
+.modal-color {
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s;
+}
+.modal-color:hover, .modal-color.selected { border-color: var(--text); transform: scale(1.15); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal-cancel {
+  padding: 8px 18px; background: none; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; color: var(--text);
+}
+.modal-cancel:hover { background: var(--bg); }
+.modal-confirm {
+  padding: 8px 18px; background: var(--brand); color: #fff; border: none;
+  border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.modal-confirm:hover { background: var(--brand-hover); }
+.modal-confirm.danger { background: var(--red); }
+.modal-confirm.danger:hover { background: #DC2626; }
+
+/* Share panel */
+.share-panel {
+  margin-top: 16px; padding: 12px; background: var(--bg); border-radius: 8px;
+}
+.share-url-row { display: flex; gap: 8px; margin-top: 8px; }
+.share-url-input {
+  flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-family: monospace; color: var(--text-secondary); outline: none;
+}
+.share-copy-btn {
+  padding: 8px 14px; background: var(--brand); color: #fff; border: none;
+  border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background 0.15s;
+}
+.share-copy-btn:hover { background: var(--brand-hover); }
+
+/* Detail back link */
+.dash-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-muted); cursor: pointer; text-decoration: none;
+  margin-bottom: 20px; font-weight: 500; transition: color 0.15s;
+}
+.dash-back:hover { color: var(--brand); }
+
+/* Blueprint detail */
+.bp-detail-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 28px; max-width: 680px;
+}
+.bp-detail-title {
+  font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px;
+}
+.bp-detail-date { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.bp-detail-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+
+/* Loading overlay for dashboard */
+.dash-loading {
+  display: flex; align-items: center; justify-content: center; padding: 60px;
+}
+.dash-loading .spinner {
+  width: 32px; height: 32px; border: 3px solid var(--border);
+  border-top-color: var(--brand); border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+
+@media (max-width: 768px) {
+  .dash-stats { grid-template-columns: 1fr; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-header { padding: 12px 16px; }
+  .dash-content { padding: 20px 16px; }
+  .dash-user-name { display: none; }
+  .dash-action-bar { flex-direction: column; align-items: stretch; }
+  .dash-search { min-width: unset; }
+}
+
 @media (max-width: 640px) {
   .landing-screen h2 { font-size: 28px; }
   .question-text { font-size: 22px; }
   .features { grid-template-columns: 1fr; }
   .header { padding: 20px 20px; }
   .stage-line { width: 40px; }
+  .auth-card { padding: 28px 20px; }
 }
 </style>
+<!-- Firebase SDK (compat mode) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
-<header class="header">
-  <div class="wordmark">Blueprint</div>
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Modal Container -->
+<div id="modalContainer"></div>
+
+<!-- Auth Screen (shown when not logged in) -->
+<div class="hidden" id="authScreen">
+  <header class="header">
+    <div class="wordmark">Blueprint</div>
+  </header>
+  <div class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-wordmark">Blueprint</div>
+      <div class="auth-tagline">Map your business. Master your operations.</div>
+      <button class="google-btn" id="googleSignInBtn">
+        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+      <div class="auth-divider"><span>or</span></div>
+      <form class="auth-form" id="authForm" onsubmit="return false;">
+        <input class="auth-input" type="email" id="authEmail" placeholder="Email address" required autocomplete="email">
+        <input class="auth-input" type="password" id="authPassword" placeholder="Password" required autocomplete="current-password">
+        <div class="auth-forgot" id="authForgotWrap"><a id="authForgotLink">Forgot password?</a></div>
+        <button class="auth-submit" type="submit" id="authSubmitBtn">Sign In</button>
+        <div class="auth-error" id="authError"></div>
+      </form>
+      <div class="auth-toggle" id="authToggle">
+        Don't have an account? <a id="authToggleLink">Sign up</a>
+      </div>
+      <div class="auth-skip">
+        <a id="authSkipLink">Continue without account</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard Screen (shown after login) -->
+<div class="hidden" id="dashboardScreen">
+  <header class="dash-header">
+    <div class="wordmark">Blueprint</div>
+    <div class="dash-user-area">
+      <span class="dash-user-name" id="dashUserName"></span>
+      <div class="dash-avatar" id="dashAvatar" onclick="toggleDashDropdown()"></div>
+      <div class="dash-dropdown hidden" id="dashDropdown">
+        <button class="dash-dropdown-item" onclick="closeDashDropdown()">Profile</button>
+        <button class="dash-dropdown-item danger" onclick="signOutUser()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+  <div class="dash-content">
+    <div class="dash-welcome" id="dashWelcome">Welcome back</div>
+
+    <div class="dash-stats" id="dashStats">
+      <div class="dash-stat-card">
+        <div class="dash-stat-value" id="statBlueprints">0</div>
+        <div class="dash-stat-label">Total Blueprints</div>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dash-stat-value" id="statStorage">0 B</div>
+        <div class="dash-stat-label">Storage Used</div>
+      </div>
+      <div class="dash-stat-card">
+        <div class="dash-stat-value" id="statMember">--</div>
+        <div class="dash-stat-label">Member Since</div>
+      </div>
+    </div>
+
+    <div class="dash-action-bar">
+      <button class="dash-new-btn" onclick="startNewBlueprint()">+ New Blueprint</button>
+      <input class="dash-search" type="text" id="dashSearch" placeholder="Search blueprints..." oninput="filterBlueprints()">
+      <div class="dash-view-toggle">
+        <button class="dash-view-btn active" id="viewGridBtn" onclick="setView('grid')" title="Grid view">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="dash-view-btn" id="viewListBtn" onclick="setView('list')" title="List view">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><line x1="1" y1="3" x2="15" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="13" x2="15" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="dash-folders" id="dashFolders"></div>
+
+    <div id="dashBlueprintsArea"></div>
+  </div>
+</div>
+
+<!-- Blueprint Detail Screen -->
+<div class="hidden" id="detailScreen">
+  <header class="dash-header">
+    <div class="wordmark">Blueprint</div>
+    <div class="dash-user-area">
+      <span class="dash-user-name" id="detailUserName"></span>
+      <div class="dash-avatar" id="detailAvatar" onclick="toggleDashDropdown()"></div>
+    </div>
+  </header>
+  <div class="dash-content" id="detailContent"></div>
+</div>
+
+<header class="header hidden" id="mainHeader">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="wordmark">Blueprint</div>
+    <a class="dash-back hidden" id="backToDashLink" onclick="goToDashboard()">&larr; Dashboard</a>
+  </div>
   <div class="stage-counter hidden" id="stageCounter">1 of 3</div>
 </header>
 
 <!-- Landing Screen -->
-<div id="landingScreen">
+<div class="hidden" id="landingScreen">
   <div class="landing-screen">
     <h2>Map your business.<br>Master your operations.</h2>
     <p class="tagline">Tell us about your business and we will research your industry, find real compliance standards, KPI benchmarks, and document templates, then generate a complete service blueprint.</p>
@@ -419,11 +889,835 @@ body {
 (function() {
 "use strict";
 
+/* ══════════════════════════════════════
+   FIREBASE INIT
+   ══════════════════════════════════════ */
+var firebaseConfig = {
+  apiKey: "AIzaSyA6kESeY08A_cL_z01zKeQkHaCzNhi5hSo",
+  authDomain: "studio-2972039985-2dbb1.firebaseapp.com",
+  projectId: "studio-2972039985-2dbb1",
+  storageBucket: "studio-2972039985-2dbb1.firebasestorage.app",
+  messagingSenderId: "983595415114",
+  appId: "1:983595415114:web:78580f1ea1cf928c7d98b3",
+  measurementId: "G-R5DWFF86E3"
+};
+firebase.initializeApp(firebaseConfig);
+
+/* ══════════════════════════════════════
+   STATE
+   ══════════════════════════════════════ */
+var currentUser = null;
+var authToken = null;
 var sessionId = null;
 var totalSteps = 8;
 var currentStep = 0;
 var currentStage = 1;
+var isAnonymousFlow = false;
+var dashView = 'grid';
+var dashBlueprints = [];
+var dashFolders = [];
+var activeFolder = null;
+var openMenuId = null;
 
+/* ══════════════════════════════════════
+   AUTH HEADERS
+   ══════════════════════════════════════ */
+function authHeaders() {
+  var h = { 'Content-Type': 'application/json' };
+  if (authToken) h['Authorization'] = 'Bearer ' + authToken;
+  return h;
+}
+
+/* ══════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════ */
+function showToast(message, type) {
+  type = type || 'info';
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+}
+window.showToast = showToast;
+
+/* ══════════════════════════════════════
+   MODAL
+   ══════════════════════════════════════ */
+function showModal(opts) {
+  var mc = document.getElementById('modalContainer');
+  mc.innerHTML = '';
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = function(e) { if (e.target === overlay) closeModal(); };
+  var modal = document.createElement('div');
+  modal.className = 'modal';
+  var h3 = document.createElement('h3');
+  h3.textContent = opts.title || 'Confirm';
+  modal.appendChild(h3);
+  if (opts.body) { modal.appendChild(opts.body); }
+  if (opts.html) { var d = document.createElement('div'); d.innerHTML = opts.html; modal.appendChild(d); }
+  var actions = document.createElement('div');
+  actions.className = 'modal-actions';
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'modal-cancel';
+  cancelBtn.textContent = opts.cancelText || 'Cancel';
+  cancelBtn.onclick = function() { closeModal(); if (opts.onCancel) opts.onCancel(); };
+  actions.appendChild(cancelBtn);
+  var confirmBtn = document.createElement('button');
+  confirmBtn.className = 'modal-confirm' + (opts.danger ? ' danger' : '');
+  confirmBtn.textContent = opts.confirmText || 'Confirm';
+  confirmBtn.onclick = function() { closeModal(); if (opts.onConfirm) opts.onConfirm(); };
+  actions.appendChild(confirmBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  mc.appendChild(overlay);
+}
+function closeModal() {
+  document.getElementById('modalContainer').innerHTML = '';
+}
+window.showModal = showModal;
+window.closeModal = closeModal;
+
+/* ══════════════════════════════════════
+   SCREEN MANAGEMENT
+   ══════════════════════════════════════ */
+function hideAllScreens() {
+  ['authScreen', 'dashboardScreen', 'detailScreen', 'landingScreen', 'appScreen'].forEach(function(id) {
+    document.getElementById(id).classList.add('hidden');
+  });
+  document.getElementById('mainHeader').classList.add('hidden');
+}
+
+function showAuthScreen() {
+  hideAllScreens();
+  document.getElementById('authScreen').classList.remove('hidden');
+}
+
+function showLanding() {
+  hideAllScreens();
+  document.getElementById('landingScreen').classList.remove('hidden');
+  document.getElementById('mainHeader').classList.remove('hidden');
+  if (currentUser) {
+    document.getElementById('backToDashLink').classList.remove('hidden');
+  }
+}
+
+function showDashboard() {
+  hideAllScreens();
+  document.getElementById('dashboardScreen').classList.remove('hidden');
+  updateDashboardUI();
+  loadDashboardData();
+}
+
+function showDetailScreen(bp) {
+  hideAllScreens();
+  document.getElementById('detailScreen').classList.remove('hidden');
+  renderBlueprintDetail(bp);
+}
+
+function showAppScreen() {
+  hideAllScreens();
+  document.getElementById('appScreen').classList.remove('hidden');
+  document.getElementById('mainHeader').classList.remove('hidden');
+  if (currentUser) {
+    document.getElementById('backToDashLink').classList.remove('hidden');
+  }
+}
+
+window.goToDashboard = function() {
+  if (currentUser) {
+    showDashboard();
+  } else {
+    showLanding();
+  }
+};
+
+/* ══════════════════════════════════════
+   AUTH STATE LISTENER
+   ══════════════════════════════════════ */
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    currentUser = user;
+    user.getIdToken().then(function(token) {
+      authToken = token;
+      // Sync with backend
+      fetch('/api/auth/sync', {
+        method: 'POST',
+        headers: authHeaders()
+      }).catch(function() {});
+      // If we are on the auth screen or initial load, go to dashboard
+      if (!isAnonymousFlow) {
+        showDashboard();
+      }
+    });
+  } else {
+    currentUser = null;
+    authToken = null;
+    if (!isAnonymousFlow) {
+      showAuthScreen();
+    }
+  }
+});
+
+/* ══════════════════════════════════════
+   AUTH UI LOGIC
+   ══════════════════════════════════════ */
+var isSignUpMode = false;
+
+document.getElementById('authToggleLink').onclick = function() {
+  isSignUpMode = !isSignUpMode;
+  document.getElementById('authSubmitBtn').textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
+  document.getElementById('authToggle').innerHTML = isSignUpMode
+    ? 'Already have an account? <a id="authToggleLink">Sign in</a>'
+    : 'Don\'t have an account? <a id="authToggleLink">Sign up</a>';
+  document.getElementById('authToggleLink').onclick = arguments.callee;
+  document.getElementById('authForgotWrap').classList.toggle('hidden', isSignUpMode);
+  document.getElementById('authError').textContent = '';
+  document.getElementById('authPassword').setAttribute('autocomplete', isSignUpMode ? 'new-password' : 'current-password');
+};
+
+document.getElementById('authForgotLink').onclick = function() {
+  var email = document.getElementById('authEmail').value.trim();
+  if (!email) { document.getElementById('authError').textContent = 'Enter your email first.'; return; }
+  firebase.auth().sendPasswordResetEmail(email).then(function() {
+    showToast('Password reset email sent.', 'success');
+    document.getElementById('authError').textContent = '';
+  }).catch(function(err) {
+    document.getElementById('authError').textContent = friendlyAuthError(err);
+  });
+};
+
+document.getElementById('googleSignInBtn').onclick = function() {
+  var provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(function(err) {
+    document.getElementById('authError').textContent = friendlyAuthError(err);
+  });
+};
+
+document.getElementById('authForm').onsubmit = function(e) {
+  e.preventDefault();
+  var email = document.getElementById('authEmail').value.trim();
+  var password = document.getElementById('authPassword').value;
+  var errEl = document.getElementById('authError');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
+  var btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
+  var promise = isSignUpMode
+    ? firebase.auth().createUserWithEmailAndPassword(email, password)
+    : firebase.auth().signInWithEmailAndPassword(email, password);
+  promise.then(function() {
+    btn.disabled = false;
+  }).catch(function(err) {
+    btn.disabled = false;
+    errEl.textContent = friendlyAuthError(err);
+  });
+};
+
+document.getElementById('authSkipLink').onclick = function() {
+  isAnonymousFlow = true;
+  showLanding();
+};
+
+function friendlyAuthError(err) {
+  var code = err.code || '';
+  if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') return 'Invalid email or password.';
+  if (code === 'auth/email-already-in-use') return 'An account with this email already exists.';
+  if (code === 'auth/weak-password') return 'Password must be at least 6 characters.';
+  if (code === 'auth/invalid-email') return 'Please enter a valid email address.';
+  if (code === 'auth/popup-closed-by-user') return 'Sign-in popup was closed.';
+  if (code === 'auth/too-many-requests') return 'Too many attempts. Please try again later.';
+  return err.message || 'An error occurred.';
+}
+
+window.signOutUser = function() {
+  firebase.auth().signOut().then(function() {
+    isAnonymousFlow = false;
+    currentUser = null;
+    authToken = null;
+    showToast('Signed out.', 'info');
+  });
+  closeDashDropdown();
+};
+
+/* ══════════════════════════════════════
+   DASHBOARD
+   ══════════════════════════════════════ */
+function updateDashboardUI() {
+  if (!currentUser) return;
+  var name = currentUser.displayName || currentUser.email.split('@')[0];
+  document.getElementById('dashWelcome').textContent = 'Welcome back, ' + name;
+  document.getElementById('dashUserName').textContent = name;
+  document.getElementById('detailUserName').textContent = name;
+  // Avatar
+  updateAvatar('dashAvatar');
+  updateAvatar('detailAvatar');
+}
+
+function updateAvatar(elId) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = '';
+  if (currentUser.photoURL) {
+    var img = document.createElement('img');
+    img.src = currentUser.photoURL;
+    img.alt = 'Avatar';
+    el.appendChild(img);
+  } else {
+    var name = currentUser.displayName || currentUser.email || '?';
+    var initials = name.split(' ').map(function(n) { return n[0]; }).join('').toUpperCase().slice(0, 2);
+    el.textContent = initials;
+  }
+}
+
+window.toggleDashDropdown = function() {
+  var dd = document.getElementById('dashDropdown');
+  dd.classList.toggle('hidden');
+};
+function closeDashDropdown() {
+  document.getElementById('dashDropdown').classList.add('hidden');
+}
+window.closeDashDropdown = closeDashDropdown;
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('dashDropdown');
+  if (!dd.classList.contains('hidden')) {
+    var userArea = e.target.closest('.dash-user-area');
+    if (!userArea) closeDashDropdown();
+  }
+  // Close blueprint menus
+  if (openMenuId) {
+    var menu = document.getElementById(openMenuId);
+    if (menu && !e.target.closest('.bp-card-actions')) {
+      menu.classList.add('hidden');
+      openMenuId = null;
+    }
+  }
+});
+
+function loadDashboardData() {
+  var area = document.getElementById('dashBlueprintsArea');
+  area.innerHTML = '<div class="dash-loading"><div class="spinner"></div></div>';
+
+  // Load blueprints
+  fetch('/api/user/blueprints', { headers: authHeaders() })
+    .then(function(r) { return r.ok ? r.json() : Promise.resolve({ blueprints: [], folders: [], stats: {} }); })
+    .then(function(data) {
+      dashBlueprints = data.blueprints || [];
+      dashFolders = data.folders || [];
+      var stats = data.stats || {};
+      document.getElementById('statBlueprints').textContent = dashBlueprints.length;
+      document.getElementById('statStorage').textContent = formatBytes(stats.storage_bytes || 0);
+      document.getElementById('statMember').textContent = stats.member_since
+        ? new Date(stats.member_since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        : '--';
+      renderFolders();
+      renderBlueprints();
+    })
+    .catch(function() {
+      dashBlueprints = [];
+      dashFolders = [];
+      renderFolders();
+      renderBlueprints();
+    });
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  var k = 1024;
+  var sizes = ['B', 'KB', 'MB', 'GB'];
+  var i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '--';
+  var d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/* ── Folders ── */
+var folderColors = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+function renderFolders() {
+  var container = document.getElementById('dashFolders');
+  container.innerHTML = '';
+
+  // All blueprints tab
+  var allTab = document.createElement('button');
+  allTab.className = 'dash-folder-card' + (!activeFolder ? ' active' : '');
+  allTab.style.borderLeftColor = '#6B7280';
+  allTab.innerHTML = '<span>All</span><span class="dash-folder-count">' + dashBlueprints.length + '</span>';
+  allTab.onclick = function() { activeFolder = null; renderFolders(); renderBlueprints(); };
+  container.appendChild(allTab);
+
+  dashFolders.forEach(function(folder) {
+    var color = folder.color || '#2563EB';
+    var count = dashBlueprints.filter(function(bp) { return bp.folder_id === folder.id; }).length;
+    var card = document.createElement('button');
+    card.className = 'dash-folder-card' + (activeFolder === folder.id ? ' active' : '');
+    card.style.borderLeftColor = color;
+    card.innerHTML = '<span class="dash-folder-dot" style="background:' + color + '"></span>' +
+      '<span>' + escapeHtml(folder.name) + '</span>' +
+      '<span class="dash-folder-count">' + count + '</span>';
+    card.onclick = function() { activeFolder = folder.id; renderFolders(); renderBlueprints(); };
+    container.appendChild(card);
+  });
+
+  var addBtn = document.createElement('button');
+  addBtn.className = 'dash-add-folder';
+  addBtn.innerHTML = '+ New Folder';
+  addBtn.onclick = showNewFolderModal;
+  container.appendChild(addBtn);
+}
+
+function showNewFolderModal() {
+  var body = document.createElement('div');
+  var input = document.createElement('input');
+  input.className = 'modal-input';
+  input.placeholder = 'Folder name';
+  input.id = 'newFolderInput';
+  body.appendChild(input);
+  var label = document.createElement('div');
+  label.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:8px;';
+  label.textContent = 'Choose a color';
+  body.appendChild(label);
+  var colors = document.createElement('div');
+  colors.className = 'modal-colors';
+  var selectedColor = folderColors[0];
+  folderColors.forEach(function(c) {
+    var dot = document.createElement('div');
+    dot.className = 'modal-color' + (c === selectedColor ? ' selected' : '');
+    dot.style.background = c;
+    dot.onclick = function() {
+      selectedColor = c;
+      colors.querySelectorAll('.modal-color').forEach(function(d) { d.classList.remove('selected'); });
+      dot.classList.add('selected');
+    };
+    colors.appendChild(dot);
+  });
+  body.appendChild(colors);
+
+  showModal({
+    title: 'New Folder',
+    body: body,
+    confirmText: 'Create',
+    onConfirm: function() {
+      var name = document.getElementById('newFolderInput').value.trim();
+      if (!name) { showToast('Folder name is required.', 'error'); return; }
+      fetch('/api/user/folders', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name: name, color: selectedColor })
+      }).then(function(r) { return r.json(); }).then(function() {
+        showToast('Folder created.', 'success');
+        loadDashboardData();
+      }).catch(function() { showToast('Failed to create folder.', 'error'); });
+    }
+  });
+  setTimeout(function() { document.getElementById('newFolderInput').focus(); }, 100);
+}
+
+/* ── Blueprints Rendering ── */
+function filterBlueprints() {
+  renderBlueprints();
+}
+
+function getFilteredBlueprints() {
+  var search = (document.getElementById('dashSearch').value || '').toLowerCase();
+  return dashBlueprints.filter(function(bp) {
+    if (activeFolder && bp.folder_id !== activeFolder) return false;
+    if (search && (bp.name || '').toLowerCase().indexOf(search) === -1) return false;
+    return true;
+  });
+}
+
+function renderBlueprints() {
+  var area = document.getElementById('dashBlueprintsArea');
+  var filtered = getFilteredBlueprints();
+
+  if (filtered.length === 0) {
+    area.innerHTML = '';
+    var empty = document.createElement('div');
+    empty.className = 'dash-empty';
+    empty.innerHTML = '<div class="dash-empty-icon">&#128196;</div>' +
+      '<h3>No blueprints yet</h3>' +
+      '<p>' + (activeFolder ? 'No blueprints in this folder.' : 'Create your first blueprint to get started.') + '</p>' +
+      '<button class="dash-new-btn" onclick="startNewBlueprint()">Create your first blueprint</button>';
+    area.appendChild(empty);
+    return;
+  }
+
+  if (dashView === 'grid') {
+    renderBlueprintsGrid(area, filtered);
+  } else {
+    renderBlueprintsList(area, filtered);
+  }
+}
+
+function renderBlueprintsGrid(area, bps) {
+  area.innerHTML = '';
+  var grid = document.createElement('div');
+  grid.className = 'dash-grid';
+
+  bps.forEach(function(bp) {
+    var card = document.createElement('div');
+    card.className = 'bp-card';
+    card.onclick = function(e) {
+      if (e.target.closest('.bp-card-actions')) return;
+      showDetailScreen(bp);
+    };
+
+    var title = document.createElement('div');
+    title.className = 'bp-card-title';
+    title.textContent = bp.name || 'Untitled Blueprint';
+    card.appendChild(title);
+
+    var date = document.createElement('div');
+    date.className = 'bp-card-date';
+    date.textContent = formatDate(bp.created_at);
+    card.appendChild(date);
+
+    var meta = document.createElement('div');
+    meta.className = 'bp-card-meta';
+
+    var fileCount = document.createElement('span');
+    fileCount.className = 'bp-badge completed';
+    fileCount.textContent = (bp.file_count || 0) + ' files';
+    meta.appendChild(fileCount);
+
+    var statusBadge = document.createElement('span');
+    statusBadge.className = 'bp-badge ' + (bp.status || 'completed');
+    statusBadge.textContent = bp.status || 'completed';
+    meta.appendChild(statusBadge);
+
+    if (bp.folder_name) {
+      var folderTag = document.createElement('span');
+      folderTag.className = 'bp-badge folder-tag';
+      folderTag.textContent = bp.folder_name;
+      meta.appendChild(folderTag);
+    }
+    if (bp.is_shared) {
+      var shareIcon = document.createElement('span');
+      shareIcon.className = 'bp-share-icon';
+      shareIcon.textContent = ' shared';
+      meta.appendChild(shareIcon);
+    }
+    card.appendChild(meta);
+
+    // 3-dot menu
+    var actionsDiv = document.createElement('div');
+    actionsDiv.className = 'bp-card-actions';
+    var menuBtn = document.createElement('button');
+    menuBtn.className = 'bp-menu-btn';
+    menuBtn.innerHTML = '&#8943;';
+    var menuId = 'bp-menu-' + bp.id;
+    var menu = document.createElement('div');
+    menu.className = 'bp-menu hidden';
+    menu.id = menuId;
+
+    var menuItems = [
+      { label: 'Preview', action: function() { showDetailScreen(bp); } },
+      { label: 'Download', action: function() { window.open('/api/download/' + encodeURIComponent(bp.session_id), '_blank'); } },
+      { label: 'Rename', action: function() { renameBlueprintModal(bp); } },
+      { label: 'Move to Folder', action: function() { moveBlueprintModal(bp); } },
+      { label: bp.is_shared ? 'Unshare' : 'Share', action: function() { toggleShare(bp); } },
+      { label: 'Delete', action: function() { deleteBlueprintModal(bp); }, danger: true }
+    ];
+    menuItems.forEach(function(item) {
+      var mi = document.createElement('button');
+      mi.className = 'bp-menu-item' + (item.danger ? ' danger' : '');
+      mi.textContent = item.label;
+      mi.onclick = function(e) { e.stopPropagation(); menu.classList.add('hidden'); openMenuId = null; item.action(); };
+      menu.appendChild(mi);
+    });
+
+    menuBtn.onclick = function(e) {
+      e.stopPropagation();
+      if (openMenuId && openMenuId !== menuId) {
+        document.getElementById(openMenuId).classList.add('hidden');
+      }
+      menu.classList.toggle('hidden');
+      openMenuId = menu.classList.contains('hidden') ? null : menuId;
+    };
+    actionsDiv.appendChild(menuBtn);
+    actionsDiv.appendChild(menu);
+    card.appendChild(actionsDiv);
+
+    grid.appendChild(card);
+  });
+  area.appendChild(grid);
+}
+
+function renderBlueprintsList(area, bps) {
+  area.innerHTML = '';
+  var wrap = document.createElement('div');
+  wrap.className = 'dash-list';
+  var table = document.createElement('table');
+  table.className = 'dash-list-table';
+  var thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th>Name</th><th>Folder</th><th>Files</th><th>Status</th><th>Created</th><th>Actions</th></tr>';
+  table.appendChild(thead);
+  var tbody = document.createElement('tbody');
+
+  bps.forEach(function(bp) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="td-name" onclick="window._viewBp(\'' + bp.id + '\')">' + escapeHtml(bp.name || 'Untitled') + '</td>' +
+      '<td>' + escapeHtml(bp.folder_name || '--') + '</td>' +
+      '<td>' + (bp.file_count || 0) + '</td>' +
+      '<td><span class="bp-badge ' + (bp.status || 'completed') + '">' + (bp.status || 'completed') + '</span></td>' +
+      '<td>' + formatDate(bp.created_at) + '</td>' +
+      '<td><button class="bp-menu-btn" onclick="window._bpListActions(\'' + bp.id + '\', this)">&#8943;</button></td>';
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  area.appendChild(wrap);
+}
+
+window._viewBp = function(id) {
+  var bp = dashBlueprints.find(function(b) { return b.id === id; });
+  if (bp) showDetailScreen(bp);
+};
+
+window._bpListActions = function(id, btn) {
+  var bp = dashBlueprints.find(function(b) { return b.id === id; });
+  if (!bp) return;
+  showDetailScreen(bp);
+};
+
+/* ── View Toggle ── */
+window.setView = function(view) {
+  dashView = view;
+  document.getElementById('viewGridBtn').classList.toggle('active', view === 'grid');
+  document.getElementById('viewListBtn').classList.toggle('active', view === 'list');
+  renderBlueprints();
+};
+
+/* ── Blueprint Actions ── */
+function renameBlueprintModal(bp) {
+  var body = document.createElement('div');
+  var input = document.createElement('input');
+  input.className = 'modal-input';
+  input.value = bp.name || '';
+  input.id = 'renameBpInput';
+  body.appendChild(input);
+  showModal({
+    title: 'Rename Blueprint',
+    body: body,
+    confirmText: 'Save',
+    onConfirm: function() {
+      var newName = document.getElementById('renameBpInput').value.trim();
+      if (!newName) return;
+      fetch('/api/user/blueprints/' + bp.id, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ name: newName })
+      }).then(function() { showToast('Renamed.', 'success'); loadDashboardData(); })
+        .catch(function() { showToast('Failed to rename.', 'error'); });
+    }
+  });
+  setTimeout(function() { var el = document.getElementById('renameBpInput'); if (el) { el.focus(); el.select(); } }, 100);
+}
+
+function moveBlueprintModal(bp) {
+  var body = document.createElement('div');
+  var sel = document.createElement('select');
+  sel.className = 'modal-input';
+  sel.id = 'moveBpSelect';
+  sel.style.padding = '10px 14px';
+  var optNone = document.createElement('option');
+  optNone.value = '';
+  optNone.textContent = '(No folder)';
+  sel.appendChild(optNone);
+  dashFolders.forEach(function(f) {
+    var opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = f.name;
+    if (bp.folder_id === f.id) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  body.appendChild(sel);
+  showModal({
+    title: 'Move to Folder',
+    body: body,
+    confirmText: 'Move',
+    onConfirm: function() {
+      var folderId = document.getElementById('moveBpSelect').value || null;
+      fetch('/api/user/blueprints/' + bp.id, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ folder_id: folderId })
+      }).then(function() { showToast('Moved.', 'success'); loadDashboardData(); })
+        .catch(function() { showToast('Failed to move.', 'error'); });
+    }
+  });
+}
+
+function toggleShare(bp) {
+  var newShared = !bp.is_shared;
+  fetch('/api/user/blueprints/' + bp.id, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ is_shared: newShared })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    showToast(newShared ? 'Blueprint shared.' : 'Sharing disabled.', 'success');
+    if (newShared && data.share_token) {
+      var url = window.location.origin + '/shared/' + data.share_token;
+      showShareLinkModal(url);
+    }
+    loadDashboardData();
+  }).catch(function() { showToast('Failed to update sharing.', 'error'); });
+}
+
+function showShareLinkModal(url) {
+  var body = document.createElement('div');
+  body.className = 'share-panel';
+  body.innerHTML = '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Share this link:</div>';
+  var row = document.createElement('div');
+  row.className = 'share-url-row';
+  var urlInput = document.createElement('input');
+  urlInput.className = 'share-url-input';
+  urlInput.value = url;
+  urlInput.readOnly = true;
+  row.appendChild(urlInput);
+  var copyBtn = document.createElement('button');
+  copyBtn.className = 'share-copy-btn';
+  copyBtn.textContent = 'Copy';
+  copyBtn.onclick = function() {
+    navigator.clipboard.writeText(url).then(function() { copyBtn.textContent = 'Copied!'; });
+  };
+  row.appendChild(copyBtn);
+  body.appendChild(row);
+  showModal({ title: 'Share Link', body: body, confirmText: 'Done', onConfirm: function() {} });
+}
+
+function deleteBlueprintModal(bp) {
+  showModal({
+    title: 'Delete Blueprint',
+    html: '<p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Are you sure you want to delete "' + escapeHtml(bp.name || 'Untitled') + '"? This cannot be undone.</p>',
+    confirmText: 'Delete',
+    danger: true,
+    onConfirm: function() {
+      fetch('/api/user/blueprints/' + bp.id, {
+        method: 'DELETE',
+        headers: authHeaders()
+      }).then(function() { showToast('Deleted.', 'success'); loadDashboardData(); })
+        .catch(function() { showToast('Failed to delete.', 'error'); });
+    }
+  });
+}
+
+/* ── Blueprint Detail ── */
+function renderBlueprintDetail(bp) {
+  var content = document.getElementById('detailContent');
+  content.innerHTML = '';
+
+  var back = document.createElement('a');
+  back.className = 'dash-back';
+  back.innerHTML = '&larr; Back to Dashboard';
+  back.onclick = function() { showDashboard(); };
+  content.appendChild(back);
+
+  var card = document.createElement('div');
+  card.className = 'bp-detail-card';
+
+  var title = document.createElement('div');
+  title.className = 'bp-detail-title';
+  title.textContent = bp.name || 'Untitled Blueprint';
+  card.appendChild(title);
+
+  var date = document.createElement('div');
+  date.className = 'bp-detail-date';
+  date.textContent = 'Created ' + formatDate(bp.created_at);
+  if (bp.is_shared) date.textContent += ' \u00B7 Shared';
+  card.appendChild(date);
+
+  var actions = document.createElement('div');
+  actions.className = 'bp-detail-actions';
+
+  var dlBtn = document.createElement('a');
+  dlBtn.href = '/api/download/' + encodeURIComponent(bp.session_id);
+  dlBtn.className = 'download-btn';
+  dlBtn.style.fontSize = '13px';
+  dlBtn.style.padding = '10px 22px';
+  dlBtn.style.marginTop = '0';
+  dlBtn.textContent = 'Download ZIP';
+  actions.appendChild(dlBtn);
+
+  var shareBtn = document.createElement('button');
+  shareBtn.className = 'restart-btn';
+  shareBtn.style.marginTop = '0';
+  shareBtn.textContent = bp.is_shared ? 'Unshare' : 'Share';
+  shareBtn.onclick = function() { toggleShare(bp); };
+  actions.appendChild(shareBtn);
+
+  card.appendChild(actions);
+
+  // Share link if shared
+  if (bp.is_shared && bp.share_token) {
+    var sharePanel = document.createElement('div');
+    sharePanel.className = 'share-panel';
+    var shareUrl = window.location.origin + '/shared/' + bp.share_token;
+    sharePanel.innerHTML = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Share link:</div>' +
+      '<div class="share-url-row"><input class="share-url-input" value="' + shareUrl + '" readonly>' +
+      '<button class="share-copy-btn" onclick="navigator.clipboard.writeText(\'' + shareUrl + '\').then(function(){this.textContent=\'Copied!\'}.bind(this))">Copy</button></div>';
+    card.appendChild(sharePanel);
+  }
+
+  // Files list
+  if (bp.files && bp.files.length) {
+    var filesLabel = document.createElement('div');
+    filesLabel.className = 'section-label';
+    filesLabel.style.marginTop = '20px';
+    filesLabel.textContent = 'FILES';
+    card.appendChild(filesLabel);
+
+    var ul = document.createElement('ul');
+    ul.className = 'file-list';
+    bp.files.forEach(function(f) {
+      var li = document.createElement('li');
+      var fn = document.createElement('span');
+      fn.className = 'fname';
+      fn.textContent = f;
+      li.appendChild(fn);
+      var lk = document.createElement('a');
+      lk.href = '/api/preview/' + encodeURIComponent(bp.session_id) + '/' + encodeURIComponent(f);
+      lk.target = '_blank';
+      lk.textContent = 'Preview \u2192';
+      li.appendChild(lk);
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+  }
+
+  content.appendChild(card);
+}
+
+/* ══════════════════════════════════════
+   NEW BLUEPRINT (from dashboard)
+   ══════════════════════════════════════ */
+window.startNewBlueprint = function() {
+  showLanding();
+};
+
+/* ══════════════════════════════════════
+   UTILITY
+   ══════════════════════════════════════ */
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+/* ══════════════════════════════════════
+   EXISTING QUESTIONNAIRE FLOW
+   (preserved exactly, with auth headers added)
+   ══════════════════════════════════════ */
 function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.max(100, el.scrollHeight) + 'px';
@@ -547,12 +1841,13 @@ window.startSession = function() {
   var desc = document.getElementById('bizDesc').value.trim();
   if (!desc) { alert('Please describe your business first.'); return; }
   document.getElementById('landingScreen').classList.add('hidden');
-  document.getElementById('appScreen').classList.remove('hidden');
+  document.getElementById('mainHeader').classList.remove('hidden');
+  showAppScreen();
   document.getElementById('stageCounter').classList.remove('hidden');
 
   fetch('/api/start', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: authHeaders(),
     body: JSON.stringify({business_description: desc})
   })
   .then(function(r) { return r.json(); })
@@ -581,7 +1876,7 @@ window.sendAnswer = function() {
 
   fetch('/api/answer', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: authHeaders(),
     body: JSON.stringify({session_id: sessionId, answer: answer})
   })
   .then(function(r) {
@@ -711,7 +2006,7 @@ window.generateBlueprint = function() {
 
   fetch('/api/generate', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: authHeaders(),
     body: JSON.stringify({session_id: sessionId})
   })
   .then(function(r) {
@@ -747,6 +2042,14 @@ function showResults(data) {
   h3.textContent = 'Your Blueprint Kit is ready';
   card.appendChild(h3);
 
+  // Saved confirmation for logged-in users
+  if (currentUser) {
+    var savedMsg = document.createElement('p');
+    savedMsg.style.cssText = 'font-size:13px;color:var(--green);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px;';
+    savedMsg.innerHTML = '&#10003; Saved to your dashboard';
+    card.appendChild(savedMsg);
+  }
+
   var countP = document.createElement('p');
   countP.style.cssText = 'font-size:14px;color:var(--text-secondary);margin-bottom:20px;';
   countP.textContent = data.file_count + ' files generated';
@@ -772,11 +2075,22 @@ function showResults(data) {
   dl.textContent = 'Download Blueprint Kit (.zip)';
   dw.appendChild(dl);
 
+  // Go to Dashboard button (for logged-in users)
+  if (currentUser) {
+    dw.appendChild(document.createElement('br'));
+    var dashBtn = document.createElement('button');
+    dashBtn.className = 'start-btn';
+    dashBtn.style.cssText = 'margin-top:12px;background:var(--brand);';
+    dashBtn.textContent = 'Go to Dashboard';
+    dashBtn.onclick = function() { showDashboard(); };
+    dw.appendChild(dashBtn);
+  }
+
+  dw.appendChild(document.createElement('br'));
   var rBtn = document.createElement('button');
   rBtn.className = 'restart-btn';
   rBtn.textContent = 'Generate Again';
   rBtn.onclick = function() { window.location.reload(); };
-  dw.appendChild(document.createElement('br'));
   dw.appendChild(rBtn);
 
   card.appendChild(dw);

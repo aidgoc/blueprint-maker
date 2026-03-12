@@ -23,3 +23,8 @@ if not OPENROUTER_API_KEY:
 PLANNER_MODEL = "google/gemini-2.5-pro"  # smart model for planning + research
 RENDERER_MODEL = "google/gemini-2.5-flash"  # capable model for subagent rendering
 PORT = int(os.environ.get("PORT", 8770))
+
+# Firebase / Google Cloud
+FIREBASE_PROJECT_ID = "studio-2972039985-2dbb1"
+FIRESTORE_DATABASE = "blueprint-maker"
+STORAGE_BUCKET = "studio-2972039985-2dbb1.firebasestorage.app"

@@ -8,9 +8,11 @@ Security hardening applied:
 - Error message sanitization
 - CORS restriction
 - Session ID entropy increase
+- Firebase Authentication (optional for anonymous, required for user endpoints)
 """
 import asyncio
 import json
+import logging
 import os
 import secrets
 import time
@@ -19,10 +21,11 @@ import zipfile
 from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 
 from config import PORT
@@ -33,6 +36,8 @@ from questionnaire import (
 from research import research_industry, research_compliance_and_kpis, compile_master_context
 from generator import generate_blueprint_kit
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Service Blueprint Maker", docs_url=None, redoc_url=None)
 
 # --- CORS: restrict to same-origin in production ---
@@ -40,8 +45,8 @@ ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 sessions: dict = {}
@@ -54,6 +59,26 @@ SESSION_TTL_SECONDS = 7200       # 2 hours
 MAX_REQUESTS_PER_MINUTE = 30     # Per IP
 MAX_GENERATE_PER_HOUR = 5        # Per IP (expensive LLM calls)
 SESSION_ID_LENGTH = 24           # Longer session IDs (96 bits)
+
+
+# --- Lazy Firebase imports (don't break if firebase-admin not installed) ---
+
+_firebase_available = None
+
+
+def is_firebase_available() -> bool:
+    """Check if Firebase SDK is available and initialized."""
+    global _firebase_available
+    if _firebase_available is not None:
+        return _firebase_available
+    try:
+        from firebase_config import get_firestore_client
+        get_firestore_client()
+        _firebase_available = True
+    except Exception as e:
+        logger.warning("Firebase not available: %s", e)
+        _firebase_available = False
+    return _firebase_available
 
 
 # ─── Rate Limiting (in-memory) ───────────────────────────────────────
@@ -181,6 +206,40 @@ class GenerateRequest(BaseModel):
         return v
 
 
+class CreateFolderRequest(BaseModel):
+    name: str
+    color: str = "#6366f1"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v):
+        v = v.strip()
+        if not v:
+            raise ValueError("Folder name cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Folder name too long (max 100 characters)")
+        return v
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v):
+        v = v.strip()
+        if not v.startswith("#") or len(v) not in (4, 7):
+            raise ValueError("Invalid color format (use hex, e.g. #6366f1)")
+        return v
+
+
+class UpdateFolderRequest(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+
+
+class UpdateBlueprintRequest(BaseModel):
+    title: Optional[str] = None
+    folder_id: Optional[str] = None
+    is_shared: Optional[bool] = None
+
+
 # ─── Error Sanitization ──────────────────────────────────────────────
 
 def safe_error_message(e: Exception) -> str:
@@ -198,6 +257,55 @@ def safe_error_message(e: Exception) -> str:
     return msg
 
 
+# ─── Firebase helper for post-generation persistence ─────────────────
+
+def _persist_blueprint_to_firebase(user_id: str, session: dict):
+    """Save a generated blueprint to Firestore + Cloud Storage.
+
+    Called synchronously after generation completes for authenticated users.
+    Errors are logged but do not bubble up to the user.
+    """
+    try:
+        from db import create_blueprint, update_blueprint, update_user, get_user
+        from storage import upload_blueprint_files
+
+        title = session["answers"].get("company_name", "Untitled Blueprint")
+        description = session.get("business_description", "")
+        files = session.get("generated_files", [])
+
+        # Create Firestore document
+        bp_id = create_blueprint(user_id, title, description)
+
+        # Upload files to Cloud Storage
+        uploaded = upload_blueprint_files(user_id, bp_id, files)
+
+        total_bytes = sum(f["size_bytes"] for f in uploaded)
+
+        # Update blueprint with file info
+        update_blueprint(bp_id, {
+            "status": "completed",
+            "file_count": len(uploaded),
+            "files": uploaded,
+            "answers": session.get("answers", {}),
+            "research": session.get("research", {}),
+        })
+
+        # Update user stats
+        user = get_user(user_id)
+        if user:
+            update_user(user_id, {
+                "blueprint_count": (user.get("blueprint_count", 0) or 0) + 1,
+                "storage_used_bytes": (user.get("storage_used_bytes", 0) or 0) + total_bytes,
+            })
+
+        # Store blueprint_id on the session for download
+        session["blueprint_id"] = bp_id
+        logger.info("Persisted blueprint %s for user %s", bp_id, user_id)
+
+    except Exception as e:
+        logger.error("Failed to persist blueprint for user %s: %s", user_id, e)
+
+
 # ─── Routes ──────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -211,6 +319,15 @@ async def index():
 @app.post("/api/start")
 async def start_session(req: StartRequest, request: Request):
     enforce_rate_limit(request)
+
+    # Optional auth — associate session with user if authenticated
+    user = None
+    if is_firebase_available():
+        try:
+            from auth import get_optional_user
+            user = await get_optional_user(request)
+        except Exception:
+            pass
 
     # Cleanup expired sessions before checking limits
     cleanup_expired_sessions()
@@ -230,6 +347,7 @@ async def start_session(req: StartRequest, request: Request):
         "master_context": "",
         "generated_files": [],
         "created_at": time.time(),
+        "user_id": user.uid if user else None,
     }
     q = get_question_for_step(0, sessions[sid])
     stage_info = STAGES[1]
@@ -443,10 +561,17 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
         files = await generate_blueprint_kit(sess["master_context"], sess.get("research", {}))
         sess["generated_files"] = files
         sess["status"] = "generated"
+
+        # Persist to Firebase if user is authenticated
+        user_id = sess.get("user_id")
+        if user_id and is_firebase_available():
+            _persist_blueprint_to_firebase(user_id, sess)
+
         return {
             "status": "done",
             "file_count": len(files),
             "files": [f["name"] for f in files],
+            "blueprint_id": sess.get("blueprint_id"),
         }
     except Exception as e:
         sess["status"] = "ready"
@@ -496,7 +621,6 @@ async def preview_file(session_id: str, filename: str, request: Request):
         raise HTTPException(404, "No generated files")
 
     # Sanitize filename -- only allow basename (no path traversal)
-    import os
     safe_filename = os.path.basename(filename)
     if not safe_filename or safe_filename != filename:
         raise HTTPException(400, "Invalid filename")
@@ -519,6 +643,335 @@ async def session_status(session_id: str, request: Request):
     if not sess:
         raise HTTPException(404, "Session not found")
     return {"status": sess["status"]}
+
+
+# ─── Auth & User Endpoints ───────────────────────────────────────────
+
+@app.post("/api/auth/sync")
+async def auth_sync(request: Request):
+    """Called after Firebase client-side login. Verifies token, upserts user."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import verify_firebase_token
+    from db import create_or_update_user
+
+    user = verify_firebase_token(request)
+    profile = create_or_update_user(user.uid, user.email, user.name, user.picture)
+    return {"status": "ok", "user": profile}
+
+
+@app.get("/api/user/profile")
+async def get_user_profile(request: Request):
+    """Get current user's profile and stats."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_user
+
+    user = await _get_current_user(request)
+    profile = get_user(user.uid)
+    if not profile:
+        raise HTTPException(404, "User profile not found. Please log in again.")
+    return profile
+
+
+@app.get("/api/user/blueprints")
+async def list_user_blueprints_endpoint(request: Request, folder_id: Optional[str] = None):
+    """List blueprints for the authenticated user."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import list_user_blueprints
+
+    user = await _get_current_user(request)
+    try:
+        blueprints = list_user_blueprints(user.uid, folder_id=folder_id)
+        return {"blueprints": blueprints}
+    except Exception as e:
+        logger.error("Failed to list blueprints: %s", e)
+        raise HTTPException(500, "Failed to load blueprints")
+
+
+@app.get("/api/user/blueprints/{blueprint_id}/files")
+async def list_blueprint_files(blueprint_id: str, request: Request):
+    """List files in a blueprint."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_blueprint
+
+    user = await _get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+
+    return {"files": bp.get("files", [])}
+
+
+@app.get("/api/user/blueprints/{blueprint_id}/preview/{filename:path}")
+async def preview_blueprint_file(blueprint_id: str, filename: str, request: Request):
+    """Preview a file from a saved blueprint via Cloud Storage."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_blueprint
+    from storage import download_file
+
+    user = await _get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+
+    # Sanitize filename
+    safe_filename = os.path.basename(filename)
+    if not safe_filename or safe_filename != filename:
+        raise HTTPException(400, "Invalid filename")
+
+    # Find the file in blueprint's file list
+    target_file = None
+    for f in bp.get("files", []):
+        if f.get("name") == safe_filename:
+            target_file = f
+            break
+
+    if not target_file:
+        raise HTTPException(404, "File not found")
+
+    try:
+        content = download_file(target_file["storage_path"])
+        if content is None:
+            raise HTTPException(404, "File not found in storage")
+        return HTMLResponse(content.decode("utf-8"))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to preview file: %s", e)
+        raise HTTPException(500, "Failed to load file preview")
+
+
+@app.put("/api/user/blueprints/{blueprint_id}")
+async def update_blueprint_endpoint(blueprint_id: str, req: UpdateBlueprintRequest, request: Request):
+    """Update blueprint metadata (rename, move to folder, toggle sharing)."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_blueprint, update_blueprint, generate_share_token
+
+    user = await _get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+
+    update_data = {}
+    if req.title is not None:
+        update_data["title"] = req.title.strip()[:200]
+    if req.folder_id is not None:
+        update_data["folder_id"] = req.folder_id if req.folder_id else None
+    if req.is_shared is not None:
+        update_data["is_shared"] = req.is_shared
+        if req.is_shared and not bp.get("share_token"):
+            update_data["share_token"] = generate_share_token()
+        elif not req.is_shared:
+            update_data["share_token"] = None
+
+    if not update_data:
+        raise HTTPException(400, "No fields to update")
+
+    try:
+        update_blueprint(blueprint_id, update_data)
+        updated = get_blueprint(blueprint_id)
+        return updated
+    except Exception as e:
+        logger.error("Failed to update blueprint: %s", e)
+        raise HTTPException(500, "Failed to update blueprint")
+
+
+@app.delete("/api/user/blueprints/{blueprint_id}")
+async def delete_blueprint_endpoint(blueprint_id: str, request: Request):
+    """Delete a blueprint and its storage files."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_blueprint, delete_blueprint, get_user, update_user
+    from storage import delete_blueprint_files
+
+    user = await _get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+
+    try:
+        # Calculate storage to reclaim
+        total_bytes = sum(f.get("size_bytes", 0) for f in bp.get("files", []))
+
+        # Delete storage files
+        delete_blueprint_files(user.uid, blueprint_id)
+
+        # Delete Firestore document
+        delete_blueprint(blueprint_id)
+
+        # Update user stats
+        profile = get_user(user.uid)
+        if profile:
+            new_count = max(0, (profile.get("blueprint_count", 0) or 0) - 1)
+            new_bytes = max(0, (profile.get("storage_used_bytes", 0) or 0) - total_bytes)
+            update_user(user.uid, {
+                "blueprint_count": new_count,
+                "storage_used_bytes": new_bytes,
+            })
+
+        return {"status": "deleted"}
+    except Exception as e:
+        logger.error("Failed to delete blueprint: %s", e)
+        raise HTTPException(500, "Failed to delete blueprint")
+
+
+@app.get("/api/shared/{share_token}")
+async def view_shared_blueprint(share_token: str, request: Request):
+    """Public endpoint to view a shared blueprint (no auth required)."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Service unavailable")
+
+    from db import get_shared_blueprint
+
+    if not share_token or len(share_token) > 64:
+        raise HTTPException(400, "Invalid share token")
+
+    bp = get_shared_blueprint(share_token)
+    if not bp:
+        raise HTTPException(404, "Shared blueprint not found")
+
+    # Return safe subset (no internal IDs, no storage paths)
+    return {
+        "title": bp.get("title", ""),
+        "business_description": bp.get("business_description", ""),
+        "status": bp.get("status", ""),
+        "file_count": bp.get("file_count", 0),
+        "files": [{"name": f.get("name", "")} for f in bp.get("files", [])],
+        "created_at": bp.get("created_at"),
+    }
+
+
+# ─── Folder Endpoints ───────────────────────────────────────────────
+
+@app.get("/api/user/folders")
+async def list_folders_endpoint(request: Request):
+    """List folders for the authenticated user."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import list_folders
+
+    user = await _get_current_user(request)
+    try:
+        folders = list_folders(user.uid)
+        return {"folders": folders}
+    except Exception as e:
+        logger.error("Failed to list folders: %s", e)
+        raise HTTPException(500, "Failed to load folders")
+
+
+@app.post("/api/user/folders")
+async def create_folder_endpoint(req: CreateFolderRequest, request: Request):
+    """Create a new folder."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import create_folder
+
+    user = await _get_current_user(request)
+    try:
+        folder_id = create_folder(user.uid, req.name, req.color)
+        return {"id": folder_id, "name": req.name, "color": req.color}
+    except Exception as e:
+        logger.error("Failed to create folder: %s", e)
+        raise HTTPException(500, "Failed to create folder")
+
+
+@app.put("/api/user/folders/{folder_id}")
+async def update_folder_endpoint(folder_id: str, req: UpdateFolderRequest, request: Request):
+    """Update a folder's name or color."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_folder, update_folder
+
+    user = await _get_current_user(request)
+    folder = get_folder(folder_id)
+    if not folder or folder.get("user_id") != user.uid:
+        raise HTTPException(404, "Folder not found")
+
+    update_data = {}
+    if req.name is not None:
+        update_data["name"] = req.name.strip()[:100]
+    if req.color is not None:
+        update_data["color"] = req.color.strip()
+
+    if not update_data:
+        raise HTTPException(400, "No fields to update")
+
+    try:
+        update_folder(folder_id, update_data)
+        return {"status": "updated"}
+    except Exception as e:
+        logger.error("Failed to update folder: %s", e)
+        raise HTTPException(500, "Failed to update folder")
+
+
+@app.delete("/api/user/folders/{folder_id}")
+async def delete_folder_endpoint(folder_id: str, request: Request):
+    """Delete a folder (moves its blueprints to root)."""
+    enforce_rate_limit(request)
+
+    if not is_firebase_available():
+        raise HTTPException(503, "Authentication service unavailable")
+
+    from auth import get_current_user as _get_current_user
+    from db import get_folder, delete_folder
+
+    user = await _get_current_user(request)
+    folder = get_folder(folder_id)
+    if not folder or folder.get("user_id") != user.uid:
+        raise HTTPException(404, "Folder not found")
+
+    try:
+        delete_folder(folder_id)
+        return {"status": "deleted"}
+    except Exception as e:
+        logger.error("Failed to delete folder: %s", e)
+        raise HTTPException(500, "Failed to delete folder")
 
 
 if __name__ == "__main__":

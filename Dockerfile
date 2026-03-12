@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY config.py generator.py renderer.py research.py questionnaire.py server.py ./
+COPY firebase_config.py auth.py db.py storage.py ./
 COPY start.sh .
 COPY static/ static/
 
