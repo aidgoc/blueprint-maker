@@ -27,4 +27,4 @@ PORT = int(os.environ.get("PORT", 8770))
 # Firebase / Google Cloud
 FIREBASE_PROJECT_ID = "studio-2972039985-2dbb1"
 FIRESTORE_DATABASE = "blueprint-maker"
-STORAGE_BUCKET = "studio-2972039985-2dbb1.firebasestorage.app"
+STORAGE_BUCKET = "blueprint-maker-storage-983595415114"

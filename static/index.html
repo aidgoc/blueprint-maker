@@ -896,7 +896,7 @@ var firebaseConfig = {
   apiKey: "AIzaSyA6kESeY08A_cL_z01zKeQkHaCzNhi5hSo",
   authDomain: "studio-2972039985-2dbb1.firebaseapp.com",
   projectId: "studio-2972039985-2dbb1",
-  storageBucket: "studio-2972039985-2dbb1.firebasestorage.app",
+  storageBucket: "blueprint-maker-storage-983595415114",
   messagingSenderId: "983595415114",
   appId: "1:983595415114:web:78580f1ea1cf928c7d98b3",
   measurementId: "G-R5DWFF86E3"
@@ -2061,14 +2061,14 @@ window.generateBlueprint = function() {
 
   var sub = document.createElement('p');
   sub.className = 'gen-sub';
-  sub.textContent = 'Using research data to create your complete blueprint kit. This takes 1-2 minutes.';
+  sub.textContent = 'Using research data to create your complete blueprint kit. This takes 3-5 minutes.';
   gc.appendChild(sub);
 
   var generateTimedOut = false;
   var generateTimeout = setTimeout(function() {
     generateTimedOut = true;
     showGenerateError(gc, 'Generation is taking longer than expected. The server may be overloaded. Please try again.');
-  }, 180000);
+  }, 420000);
 
   fetchWithAuth('/api/generate', {
     method: 'POST',
