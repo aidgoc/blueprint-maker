@@ -727,7 +727,7 @@ body {
         <div class="auth-error" id="authError"></div>
       </form>
       <div class="auth-toggle" id="authToggle">
-        Don't have an account? <a id="authToggleLink">Sign up</a>
+        Don't have an account? <a id="authToggleLink" href="#">Sign up</a>
       </div>
       <div class="auth-skip">
         <a id="authSkipLink">Continue without account</a>
@@ -1066,17 +1066,18 @@ firebase.auth().onAuthStateChanged(function(user) {
    ══════════════════════════════════════ */
 var isSignUpMode = false;
 
-document.getElementById('authToggleLink').onclick = function() {
+function toggleAuthMode() {
   isSignUpMode = !isSignUpMode;
   document.getElementById('authSubmitBtn').textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
   document.getElementById('authToggle').innerHTML = isSignUpMode
-    ? 'Already have an account? <a id="authToggleLink">Sign in</a>'
-    : 'Don\'t have an account? <a id="authToggleLink">Sign up</a>';
-  document.getElementById('authToggleLink').onclick = arguments.callee;
+    ? 'Already have an account? <a id="authToggleLink" href="#">Sign in</a>'
+    : 'Don\'t have an account? <a id="authToggleLink" href="#">Sign up</a>';
+  document.getElementById('authToggleLink').onclick = function(e) { e.preventDefault(); toggleAuthMode(); };
   document.getElementById('authForgotWrap').classList.toggle('hidden', isSignUpMode);
   document.getElementById('authError').textContent = '';
   document.getElementById('authPassword').setAttribute('autocomplete', isSignUpMode ? 'new-password' : 'current-password');
-};
+}
+document.getElementById('authToggleLink').onclick = function(e) { e.preventDefault(); toggleAuthMode(); };
 
 document.getElementById('authForgotLink').onclick = function() {
   var email = document.getElementById('authEmail').value.trim();
