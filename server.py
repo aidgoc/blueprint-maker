@@ -35,6 +35,7 @@ from questionnaire import (
 )
 from research import research_industry, research_compliance_and_kpis, compile_master_context
 from generator import generate_blueprint_kit
+from session_store import save_session, get_session, update_session, cleanup_expired, delete_session
 
 logger = logging.getLogger(__name__)
 
@@ -143,14 +144,8 @@ def enforce_rate_limit(request: Request):
 # ─── Session Cleanup ─────────────────────────────────────────────────
 
 def cleanup_expired_sessions():
-    """Remove sessions older than TTL."""
-    now = time.time()
-    expired = [
-        sid for sid, sess in sessions.items()
-        if now - sess.get("created_at", 0) > SESSION_TTL_SECONDS
-    ]
-    for sid in expired:
-        del sessions[sid]
+    """Remove expired sessions from memory and Firestore."""
+    cleanup_expired(sessions)
 
 
 # ─── Input Validation ────────────────────────────────────────────────
@@ -333,7 +328,7 @@ async def start_session(req: StartRequest, request: Request):
         raise HTTPException(503, "Service is busy. Please try again later.")
 
     sid = secrets.token_hex(SESSION_ID_LENGTH // 2)  # Cryptographically random
-    sessions[sid] = {
+    sess_data = {
         "business_description": req.business_description,
         "answers": {},
         "current_step": 0,
@@ -346,6 +341,7 @@ async def start_session(req: StartRequest, request: Request):
         "created_at": time.time(),
         "user_id": user.uid if user else None,
     }
+    save_session(sid, sess_data, sessions)
     q = get_question_for_step(0, sessions[sid])
     stage_info = STAGES[1]
     return {
@@ -363,7 +359,7 @@ async def start_session(req: StartRequest, request: Request):
 async def answer_question(req: AnswerRequest, request: Request):
     enforce_rate_limit(request)
 
-    sess = sessions.get(req.session_id)
+    sess = get_session(req.session_id, sessions)
     if not sess:
         raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
 
@@ -405,6 +401,7 @@ async def answer_question(req: AnswerRequest, request: Request):
                 sess["status"] = "intake"
                 sess["current_stage"] = 2
 
+                update_session(req.session_id, sess)
                 q = get_question_for_step(next_step, sess)
                 stage_info = STAGES[2]
                 return {
@@ -432,6 +429,7 @@ async def answer_question(req: AnswerRequest, request: Request):
                     {"key": "customer_journey", "question": "Walk through your process from first customer contact to job completion.", "placeholder": ""},
                     {"key": "key_challenges", "question": "What are your biggest operational challenges?", "placeholder": ""},
                 ]
+                update_session(req.session_id, sess)
                 q = get_question_for_step(next_step, sess)
                 return {
                     "done": False,
@@ -469,6 +467,7 @@ async def answer_question(req: AnswerRequest, request: Request):
 
             sess["status"] = "intake"
             sess["current_stage"] = 3
+            update_session(req.session_id, sess)
             q = get_question_for_step(next_step, sess)
             stage_info = STAGES[3]
             return {
@@ -502,6 +501,8 @@ async def answer_question(req: AnswerRequest, request: Request):
             # Build a minimal context so generation can still proceed
             sess["master_context"] = f"Company: {stage1.get('company_name', 'Unknown')}\nIndustry: {stage1.get('industry_description', 'Unknown')}"
 
+        update_session(req.session_id, sess)
+
         # Build profile for display
         departments = r1.get("typical_departments", [])
         stages = r1.get("typical_process_stages", [])
@@ -522,6 +523,7 @@ async def answer_question(req: AnswerRequest, request: Request):
         }
 
     # -- Normal next question (within same stage) --
+    update_session(req.session_id, sess)
     q = get_question_for_step(next_step, sess)
     stage = get_stage_for_step(next_step)
     stage_info = STAGES[stage]
@@ -546,6 +548,7 @@ async def _run_generation(session_id: str, sess: dict):
         sess["generated_files"] = files
         sess["status"] = "generated"
         sess["generate_progress"] = {"step": 4, "total_steps": 4, "message": "Done!"}
+        update_session(session_id, sess)
 
         # Persist to Firebase
         user_id = sess.get("user_id")
@@ -558,6 +561,7 @@ async def _run_generation(session_id: str, sess: dict):
         sess["status"] = "ready"  # Allow retry
         sess["generate_error"] = safe_error_message(e)
         sess["generate_progress"] = None
+        update_session(session_id, sess)
 
 
 @app.post("/api/generate")
@@ -568,7 +572,7 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
     if not rate_limiter.check_generate_limit(ip):
         raise HTTPException(429, "Generation rate limit reached. Please try again later.")
 
-    sess = sessions.get(req.session_id)
+    sess = get_session(req.session_id, sessions)
     if not sess:
         raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
     if sess["status"] == "generating":
@@ -593,7 +597,7 @@ async def download_kit(session_id: str, request: Request):
     if not session_id or len(session_id) > 48 or not all(c in "0123456789abcdef" for c in session_id):
         raise HTTPException(400, "Invalid session ID")
 
-    sess = sessions.get(session_id)
+    sess = get_session(session_id, sessions)
     if not sess or sess["status"] != "generated":
         raise HTTPException(404, "No generated files")
 
@@ -623,7 +627,7 @@ async def preview_file(session_id: str, filename: str, request: Request):
     if not session_id or len(session_id) > 48 or not all(c in "0123456789abcdef" for c in session_id):
         raise HTTPException(400, "Invalid session ID")
 
-    sess = sessions.get(session_id)
+    sess = get_session(session_id, sessions)
     if not sess or sess["status"] != "generated":
         raise HTTPException(404, "No generated files")
 
@@ -646,7 +650,7 @@ async def session_status(session_id: str, request: Request):
     if not session_id or len(session_id) > 48 or not all(c in "0123456789abcdef" for c in session_id):
         raise HTTPException(400, "Invalid session ID")
 
-    sess = sessions.get(session_id)
+    sess = get_session(session_id, sessions)
     if not sess:
         raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
     return {"status": sess["status"]}
@@ -659,7 +663,7 @@ async def generate_status(session_id: str, request: Request):
     if not session_id or len(session_id) > 48 or not all(c in "0123456789abcdef" for c in session_id):
         raise HTTPException(400, "Invalid session ID")
 
-    sess = sessions.get(session_id)
+    sess = get_session(session_id, sessions)
     if not sess:
         raise HTTPException(404, "Session not found")
 
