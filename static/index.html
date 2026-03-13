@@ -927,6 +927,58 @@ function authHeaders() {
   return h;
 }
 
+function refreshTokenIfNeeded() {
+  if (!currentUser) return Promise.resolve();
+  return currentUser.getIdToken(false).then(function(token) {
+    authToken = token;
+  });
+}
+
+function handleFetchError(r) {
+  if (!r.ok) {
+    return r.json().catch(function() {
+      return { detail: null };
+    }).then(function(d) {
+      var msg = d.detail || 'Request failed';
+      if (r.status === 401) {
+        return currentUser ? currentUser.getIdToken(true).then(function(token) {
+          authToken = token;
+          throw new Error('AUTH_RETRY');
+        }) : Promise.reject(new Error('Please sign in to continue.'));
+      }
+      if (r.status === 404 && msg.indexOf('Session') !== -1) {
+        throw new Error('Your session has expired or the server was restarted. Please start a new blueprint.');
+      }
+      if (r.status === 429) {
+        throw new Error('Too many requests. Please wait a moment and try again.');
+      }
+      throw new Error(msg);
+    });
+  }
+  return r.json();
+}
+
+function fetchWithAuth(url, options, retried) {
+  return refreshTokenIfNeeded().then(function() {
+    if (options && options.headers) {
+      options.headers['Authorization'] = authToken ? 'Bearer ' + authToken : '';
+    }
+    return fetch(url, options);
+  }).then(function(r) {
+    return handleFetchError(r);
+  }).catch(function(e) {
+    if (e.message === 'AUTH_RETRY' && !retried) {
+      if (options && options.headers) {
+        options.headers['Authorization'] = authToken ? 'Bearer ' + authToken : '';
+      }
+      return fetch(url, options).then(function(r) {
+        return handleFetchError(r);
+      });
+    }
+    throw e;
+  });
+}
+
 /* ══════════════════════════════════════
    TOAST
    ══════════════════════════════════════ */
@@ -1041,11 +1093,15 @@ firebase.auth().onAuthStateChanged(function(user) {
     currentUser = user;
     user.getIdToken().then(function(token) {
       authToken = token;
-      // Sync with backend
       fetch('/api/auth/sync', {
         method: 'POST',
         headers: authHeaders()
-      }).catch(function() {});
+      }).then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Sync failed'); });
+        return r.json();
+      }).catch(function(e) {
+        console.warn('Auth sync failed:', e.message || e);
+      });
       showDashboard();
     });
   } else {
@@ -1192,9 +1248,7 @@ function loadDashboardData() {
   var area = document.getElementById('dashBlueprintsArea');
   area.innerHTML = '<div class="dash-loading"><div class="spinner"></div></div>';
 
-  // Load blueprints
-  fetch('/api/user/blueprints', { headers: authHeaders() })
-    .then(function(r) { return r.ok ? r.json() : Promise.resolve({ blueprints: [], folders: [], stats: {} }); })
+  fetchWithAuth('/api/user/blueprints', { headers: authHeaders() })
     .then(function(data) {
       dashBlueprints = data.blueprints || [];
       dashFolders = data.folders || [];
@@ -1207,7 +1261,9 @@ function loadDashboardData() {
       renderFolders();
       renderBlueprints();
     })
-    .catch(function() {
+    .catch(function(e) {
+      console.warn('Failed to load dashboard:', e.message || e);
+      showToast('Failed to load blueprints: ' + (e.message || 'Unknown error'), 'error');
       dashBlueprints = [];
       dashFolders = [];
       renderFolders();
@@ -1298,14 +1354,14 @@ function showNewFolderModal() {
     onConfirm: function() {
       var name = document.getElementById('newFolderInput').value.trim();
       if (!name) { showToast('Folder name is required.', 'error'); return; }
-      fetch('/api/user/folders', {
+      fetchWithAuth('/api/user/folders', {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify({ name: name, color: selectedColor })
-      }).then(function(r) { return r.json(); }).then(function() {
+      }).then(function() {
         showToast('Folder created.', 'success');
         loadDashboardData();
-      }).catch(function() { showToast('Failed to create folder.', 'error'); });
+      }).catch(function(e) { showToast('Failed to create folder: ' + (e.message || 'Unknown error'), 'error'); });
     }
   });
   setTimeout(function() { document.getElementById('newFolderInput').focus(); }, 100);
@@ -1503,12 +1559,12 @@ function renameBlueprintModal(bp) {
     onConfirm: function() {
       var newName = document.getElementById('renameBpInput').value.trim();
       if (!newName) return;
-      fetch('/api/user/blueprints/' + bp.id, {
+      fetchWithAuth('/api/user/blueprints/' + bp.id, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({ name: newName })
       }).then(function() { showToast('Renamed.', 'success'); loadDashboardData(); })
-        .catch(function() { showToast('Failed to rename.', 'error'); });
+        .catch(function(e) { showToast('Failed to rename: ' + (e.message || 'Unknown error'), 'error'); });
     }
   });
   setTimeout(function() { var el = document.getElementById('renameBpInput'); if (el) { el.focus(); el.select(); } }, 100);
@@ -1538,30 +1594,30 @@ function moveBlueprintModal(bp) {
     confirmText: 'Move',
     onConfirm: function() {
       var folderId = document.getElementById('moveBpSelect').value || null;
-      fetch('/api/user/blueprints/' + bp.id, {
+      fetchWithAuth('/api/user/blueprints/' + bp.id, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({ folder_id: folderId })
       }).then(function() { showToast('Moved.', 'success'); loadDashboardData(); })
-        .catch(function() { showToast('Failed to move.', 'error'); });
+        .catch(function(e) { showToast('Failed to move: ' + (e.message || 'Unknown error'), 'error'); });
     }
   });
 }
 
 function toggleShare(bp) {
   var newShared = !bp.is_shared;
-  fetch('/api/user/blueprints/' + bp.id, {
+  fetchWithAuth('/api/user/blueprints/' + bp.id, {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ is_shared: newShared })
-  }).then(function(r) { return r.json(); }).then(function(data) {
+  }).then(function(data) {
     showToast(newShared ? 'Blueprint shared.' : 'Sharing disabled.', 'success');
     if (newShared && data.share_token) {
       var url = window.location.origin + '/shared/' + data.share_token;
       showShareLinkModal(url);
     }
     loadDashboardData();
-  }).catch(function() { showToast('Failed to update sharing.', 'error'); });
+  }).catch(function(e) { showToast('Failed to update sharing: ' + (e.message || 'Unknown error'), 'error'); });
 }
 
 function showShareLinkModal(url) {
@@ -1593,11 +1649,11 @@ function deleteBlueprintModal(bp) {
     confirmText: 'Delete',
     danger: true,
     onConfirm: function() {
-      fetch('/api/user/blueprints/' + bp.id, {
+      fetchWithAuth('/api/user/blueprints/' + bp.id, {
         method: 'DELETE',
         headers: authHeaders()
       }).then(function() { showToast('Deleted.', 'success'); loadDashboardData(); })
-        .catch(function() { showToast('Failed to delete.', 'error'); });
+        .catch(function(e) { showToast('Failed to delete: ' + (e.message || 'Unknown error'), 'error'); });
     }
   });
 }
@@ -1830,25 +1886,38 @@ window.handleKey = function(event) {
 window.startSession = function() {
   var desc = document.getElementById('bizDesc').value.trim();
   if (!desc) { alert('Please describe your business first.'); return; }
+
+  if (!authToken) {
+    showToast('Please sign in before starting.', 'error');
+    showAuthScreen();
+    return;
+  }
+
+  var startBtn = document.querySelector('.start-btn');
+  if (startBtn) { startBtn.disabled = true; startBtn.style.opacity = '0.5'; }
+
   document.getElementById('landingScreen').classList.add('hidden');
   document.getElementById('mainHeader').classList.remove('hidden');
   showAppScreen();
   document.getElementById('stageCounter').classList.remove('hidden');
 
-  fetch('/api/start', {
+  fetchWithAuth('/api/start', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({business_description: desc})
   })
-  .then(function(r) { return r.json(); })
   .then(function(data) {
+    if (startBtn) { startBtn.disabled = false; startBtn.style.opacity = ''; }
     sessionId = data.session_id;
     totalSteps = data.total_steps;
     updateStageBar(data.stage || 1);
     showQuestion(data.question, 1);
   })
   .catch(function(e) {
-    document.getElementById('questionText').textContent = 'Error connecting. Is the server running?';
+    if (startBtn) { startBtn.disabled = false; startBtn.style.opacity = ''; }
+    document.getElementById('stageCounter').classList.add('hidden');
+    showLanding();
+    showToast('Error: ' + e.message, 'error');
   });
 };
 
@@ -1864,14 +1933,10 @@ window.sendAnswer = function() {
   spinner.className = 'spinner';
   btn.insertBefore(spinner, btn.firstChild);
 
-  fetch('/api/answer', {
+  fetchWithAuth('/api/answer', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({session_id: sessionId, answer: answer})
-  })
-  .then(function(r) {
-    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Error'); });
-    return r.json();
   })
   .then(function(data) {
     btn.disabled = false;
@@ -1901,7 +1966,11 @@ window.sendAnswer = function() {
     btn.disabled = false;
     btnText.textContent = 'Continue';
     if (spinner.parentNode) spinner.parentNode.removeChild(spinner);
-    document.getElementById('questionText').textContent = 'Error: ' + e.message;
+    showToast(e.message, 'error');
+    if (e.message.indexOf('session has expired') !== -1 || e.message.indexOf('sign in') !== -1) {
+      sessionId = null;
+      showLanding();
+    }
   });
 
   // Show research animation if it takes a while
@@ -1970,8 +2039,9 @@ function showProfile(data) {
   btnWrap.style.textAlign = 'center';
   var genBtn = document.createElement('button');
   genBtn.className = 'generate-btn';
-  genBtn.innerHTML = 'Generate Blueprint Kit <span>&rarr;</span>';
-  genBtn.onclick = generateBlueprint;
+  genBtn.id = 'generateBtn';
+  genBtn.textContent = 'Generate Blueprint Kit';
+  genBtn.onclick = function() { genBtn.disabled = true; generateBlueprint(); };
   btnWrap.appendChild(genBtn);
   area.appendChild(btnWrap);
 }
@@ -1994,31 +2064,56 @@ window.generateBlueprint = function() {
   sub.textContent = 'Using research data to create your complete blueprint kit. This takes 1-2 minutes.';
   gc.appendChild(sub);
 
-  fetch('/api/generate', {
+  var generateTimedOut = false;
+  var generateTimeout = setTimeout(function() {
+    generateTimedOut = true;
+    showGenerateError(gc, 'Generation is taking longer than expected. The server may be overloaded. Please try again.');
+  }, 180000);
+
+  fetchWithAuth('/api/generate', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({session_id: sessionId})
   })
-  .then(function(r) {
-    if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || 'Failed'); });
-    return r.json();
-  })
   .then(function(data) {
-    if (data.status === 'done') { showResults(data); }
+    clearTimeout(generateTimeout);
+    if (generateTimedOut) return;
+    if (data.status === 'done') {
+      if (data.persist_warning) {
+        showToast('Blueprint generated but could not be saved to your account. You can still download it.', 'info');
+      }
+      showResults(data);
+    } else {
+      throw new Error(data.detail || 'Generation did not complete. Please try again.');
+    }
   })
   .catch(function(e) {
-    while (gc.firstChild) gc.removeChild(gc.firstChild);
-    var ep = document.createElement('p');
-    ep.style.cssText = 'color:var(--red);font-weight:600;font-size:14px;margin-bottom:16px;';
-    ep.textContent = 'Error: ' + e.message;
-    gc.appendChild(ep);
-    var rb = document.createElement('button');
-    rb.className = 'generate-btn';
-    rb.textContent = 'Retry';
-    rb.onclick = generateBlueprint;
-    gc.appendChild(rb);
+    clearTimeout(generateTimeout);
+    if (generateTimedOut) return;
+    showGenerateError(gc, e.message);
   });
 };
+
+function showGenerateError(gc, message) {
+  while (gc.firstChild) gc.removeChild(gc.firstChild);
+  var ep = document.createElement('p');
+  ep.style.cssText = 'color:var(--red);font-weight:600;font-size:14px;margin-bottom:16px;';
+  ep.textContent = 'Error: ' + message;
+  gc.appendChild(ep);
+  var rb = document.createElement('button');
+  rb.className = 'generate-btn';
+  rb.textContent = 'Retry';
+  rb.onclick = generateBlueprint;
+  gc.appendChild(rb);
+  if (message.indexOf('session has expired') !== -1) {
+    var restartBtn = document.createElement('button');
+    restartBtn.className = 'restart-btn';
+    restartBtn.style.marginTop = '12px';
+    restartBtn.textContent = 'Start Over';
+    restartBtn.onclick = function() { sessionId = null; showLanding(); };
+    gc.appendChild(restartBtn);
+  }
+}
 
 function showResults(data) {
   showOnly('resultArea');

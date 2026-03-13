@@ -259,11 +259,11 @@ def safe_error_message(e: Exception) -> str:
 
 # ─── Firebase helper for post-generation persistence ─────────────────
 
-def _persist_blueprint_to_firebase(user_id: str, session: dict):
+def _persist_blueprint_to_firebase(user_id: str, session: dict) -> bool:
     """Save a generated blueprint to Firestore + Cloud Storage.
 
     Called synchronously after generation completes for authenticated users.
-    Errors are logged but do not bubble up to the user.
+    Returns True on success, False on failure.
     """
     try:
         from db import create_blueprint, update_blueprint, update_user, get_user
@@ -273,15 +273,12 @@ def _persist_blueprint_to_firebase(user_id: str, session: dict):
         description = session.get("business_description", "")
         files = session.get("generated_files", [])
 
-        # Create Firestore document
         bp_id = create_blueprint(user_id, title, description)
 
-        # Upload files to Cloud Storage
         uploaded = upload_blueprint_files(user_id, bp_id, files)
 
         total_bytes = sum(f["size_bytes"] for f in uploaded)
 
-        # Update blueprint with file info
         update_blueprint(bp_id, {
             "status": "completed",
             "file_count": len(uploaded),
@@ -290,7 +287,6 @@ def _persist_blueprint_to_firebase(user_id: str, session: dict):
             "research": session.get("research", {}),
         })
 
-        # Update user stats
         user = get_user(user_id)
         if user:
             update_user(user_id, {
@@ -298,12 +294,13 @@ def _persist_blueprint_to_firebase(user_id: str, session: dict):
                 "storage_used_bytes": (user.get("storage_used_bytes", 0) or 0) + total_bytes,
             })
 
-        # Store blueprint_id on the session for download
         session["blueprint_id"] = bp_id
         logger.info("Persisted blueprint %s for user %s", bp_id, user_id)
+        return True
 
     except Exception as e:
         logger.error("Failed to persist blueprint for user %s: %s", user_id, e)
+        return False
 
 
 # ─── Routes ──────────────────────────────────────────────────────────
@@ -368,7 +365,7 @@ async def answer_question(req: AnswerRequest, request: Request):
 
     sess = sessions.get(req.session_id)
     if not sess:
-        raise HTTPException(404, "Session not found")
+        raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
 
     # Prevent concurrent modification while researching/generating
     if sess["status"] in ("researching", "generating", "compiling"):
@@ -549,7 +546,7 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
 
     sess = sessions.get(req.session_id)
     if not sess:
-        raise HTTPException(404, "Session not found")
+        raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
     if sess["status"] == "generating":
         raise HTTPException(409, "Generation already in progress. Please wait.")
     if sess["status"] not in ("ready", "generated"):
@@ -562,17 +559,22 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
         sess["generated_files"] = files
         sess["status"] = "generated"
 
-        # Persist to Firebase if user is authenticated
         user_id = sess.get("user_id")
+        persist_warning = False
         if user_id and is_firebase_available():
-            _persist_blueprint_to_firebase(user_id, sess)
+            persist_ok = _persist_blueprint_to_firebase(user_id, sess)
+            if not persist_ok:
+                persist_warning = True
 
-        return {
+        response = {
             "status": "done",
             "file_count": len(files),
             "files": [f["name"] for f in files],
             "blueprint_id": sess.get("blueprint_id"),
         }
+        if persist_warning:
+            response["persist_warning"] = True
+        return response
     except Exception as e:
         sess["status"] = "ready"
         raise HTTPException(500, f"Generation failed: {safe_error_message(e)}")
@@ -641,7 +643,7 @@ async def session_status(session_id: str, request: Request):
 
     sess = sessions.get(session_id)
     if not sess:
-        raise HTTPException(404, "Session not found")
+        raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
     return {"status": sess["status"]}
 
 
