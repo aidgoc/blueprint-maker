@@ -589,6 +589,46 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
     return {"status": "started", "session_id": req.session_id}
 
 
+def _recover_files_from_storage(sess: dict) -> list[dict]:
+    """Recover generated files from Cloud Storage when not in memory.
+
+    After a server restart, generated_files is empty (excluded from Firestore
+    persistence). But if the blueprint was persisted to Cloud Storage, we can
+    download the files back.
+    """
+    if sess.get("generated_files"):
+        return sess["generated_files"]
+
+    blueprint_id = sess.get("blueprint_id")
+    user_id = sess.get("user_id")
+    if not blueprint_id or not user_id:
+        return []
+
+    try:
+        from storage import download_file
+        from db import get_blueprint
+
+        bp = get_blueprint(blueprint_id)
+        if not bp or not bp.get("files"):
+            return []
+
+        recovered = []
+        for f in bp["files"]:
+            content = download_file(f["storage_path"])
+            if content is not None:
+                recovered.append({
+                    "name": f["name"],
+                    "content": content.decode("utf-8"),
+                })
+        if recovered:
+            sess["generated_files"] = recovered
+            logger.info("Recovered %d files from Cloud Storage for blueprint %s", len(recovered), blueprint_id)
+        return recovered
+    except Exception as e:
+        logger.error("Failed to recover files from storage: %s", e)
+        return []
+
+
 @app.get("/api/download/{session_id}")
 async def download_kit(session_id: str, request: Request):
     enforce_rate_limit(request)
@@ -601,9 +641,13 @@ async def download_kit(session_id: str, request: Request):
     if not sess or sess["status"] != "generated":
         raise HTTPException(404, "No generated files")
 
+    files = _recover_files_from_storage(sess)
+    if not files:
+        raise HTTPException(404, "Generated files are no longer available. Check your dashboard for saved blueprints.")
+
     buf = BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in sess["generated_files"]:
+        for f in files:
             zf.writestr(f["name"], f["content"])
     buf.seek(0)
 
@@ -636,7 +680,8 @@ async def preview_file(session_id: str, filename: str, request: Request):
     if not safe_filename or safe_filename != filename:
         raise HTTPException(400, "Invalid filename")
 
-    for f in sess["generated_files"]:
+    files = _recover_files_from_storage(sess)
+    for f in files:
         if f["name"] == safe_filename:
             return HTMLResponse(f["content"])
     raise HTTPException(404, "File not found")
@@ -670,10 +715,11 @@ async def generate_status(session_id: str, request: Request):
     progress = sess.get("generate_progress")
 
     if sess["status"] == "generated":
+        files = _recover_files_from_storage(sess)
         response = {
             "status": "done",
-            "file_count": len(sess.get("generated_files", [])),
-            "files": [f["name"] for f in sess.get("generated_files", [])],
+            "file_count": len(files),
+            "files": [f["name"] for f in files],
             "blueprint_id": sess.get("blueprint_id"),
         }
         if sess.get("persist_warning"):
