@@ -33,4 +33,5 @@ jobs:
           source: .
           env_vars: |
             OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
-          flags: --memory=2Gi --cpu=2 --timeout=3600 --concurrency=10 --port=8770 --allow-unauthenticated
+            ALLOWED_ORIGINS=https://bluprint.one,https://www.bluprint.one
+          flags: --memory=4Gi --cpu=2 --timeout=3600 --concurrency=5 --port=8770 --allow-unauthenticated

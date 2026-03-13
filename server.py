@@ -536,6 +536,30 @@ async def answer_question(req: AnswerRequest, request: Request):
     }
 
 
+async def _run_generation(session_id: str, sess: dict):
+    """Run blueprint generation in background, updating progress in session."""
+    try:
+        def progress_callback(step: int, total: int, message: str):
+            sess["generate_progress"] = {"step": step, "total_steps": total, "message": message}
+
+        files = await generate_blueprint_kit(sess["master_context"], sess.get("research", {}), progress_cb=progress_callback)
+        sess["generated_files"] = files
+        sess["status"] = "generated"
+        sess["generate_progress"] = {"step": 4, "total_steps": 4, "message": "Done!"}
+
+        # Persist to Firebase
+        user_id = sess.get("user_id")
+        if user_id and is_firebase_available():
+            persist_ok = _persist_blueprint_to_firebase(user_id, sess)
+            if not persist_ok:
+                sess["persist_warning"] = True
+    except Exception as e:
+        logger.error("Generation failed for session %s: %s", session_id, e)
+        sess["status"] = "ready"  # Allow retry
+        sess["generate_error"] = safe_error_message(e)
+        sess["generate_progress"] = None
+
+
 @app.post("/api/generate")
 async def generate_blueprint(req: GenerateRequest, request: Request):
     enforce_rate_limit(request)
@@ -553,31 +577,12 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
         raise HTTPException(400, "Complete the questionnaire first.")
 
     sess["status"] = "generating"
+    sess["generate_progress"] = {"step": 0, "total_steps": 4, "message": "Starting generation..."}
 
-    try:
-        files = await generate_blueprint_kit(sess["master_context"], sess.get("research", {}))
-        sess["generated_files"] = files
-        sess["status"] = "generated"
+    # Launch generation in background
+    asyncio.create_task(_run_generation(req.session_id, sess))
 
-        user_id = sess.get("user_id")
-        persist_warning = False
-        if user_id and is_firebase_available():
-            persist_ok = _persist_blueprint_to_firebase(user_id, sess)
-            if not persist_ok:
-                persist_warning = True
-
-        response = {
-            "status": "done",
-            "file_count": len(files),
-            "files": [f["name"] for f in files],
-            "blueprint_id": sess.get("blueprint_id"),
-        }
-        if persist_warning:
-            response["persist_warning"] = True
-        return response
-    except Exception as e:
-        sess["status"] = "ready"
-        raise HTTPException(500, f"Generation failed: {safe_error_message(e)}")
+    return {"status": "started", "session_id": req.session_id}
 
 
 @app.get("/api/download/{session_id}")
@@ -645,6 +650,43 @@ async def session_status(session_id: str, request: Request):
     if not sess:
         raise HTTPException(404, "Session not found. It may have expired or the server was restarted. Please start a new blueprint.")
     return {"status": sess["status"]}
+
+
+@app.get("/api/generate/status/{session_id}")
+async def generate_status(session_id: str, request: Request):
+    enforce_rate_limit(request)
+
+    if not session_id or len(session_id) > 48 or not all(c in "0123456789abcdef" for c in session_id):
+        raise HTTPException(400, "Invalid session ID")
+
+    sess = sessions.get(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    progress = sess.get("generate_progress")
+
+    if sess["status"] == "generated":
+        response = {
+            "status": "done",
+            "file_count": len(sess.get("generated_files", [])),
+            "files": [f["name"] for f in sess.get("generated_files", [])],
+            "blueprint_id": sess.get("blueprint_id"),
+        }
+        if sess.get("persist_warning"):
+            response["persist_warning"] = True
+        return response
+    elif sess["status"] == "generating":
+        return {
+            "status": "generating",
+            "step": progress["step"] if progress else 0,
+            "total_steps": progress["total_steps"] if progress else 4,
+            "message": progress["message"] if progress else "Working...",
+        }
+    elif sess.get("generate_error"):
+        error = sess.pop("generate_error")
+        return {"status": "error", "detail": error}
+    else:
+        return {"status": sess["status"]}
 
 
 # ─── Auth & User Endpoints ───────────────────────────────────────────

@@ -32,16 +32,19 @@ def upload_blueprint_files(user_id: str, blueprint_id: str, files: list[dict]) -
         name = f["name"]
         content = f["content"]
         storage_path = f"{prefix}{name}"
-        blob = bucket.blob(storage_path)
-        content_bytes = content.encode("utf-8") if isinstance(content, str) else content
-        blob.upload_from_string(content_bytes, content_type="text/html")
+        try:
+            blob = bucket.blob(storage_path)
+            content_bytes = content.encode("utf-8") if isinstance(content, str) else content
+            blob.upload_from_string(content_bytes, content_type="text/html")
 
-        uploaded.append({
-            "name": name,
-            "storage_path": storage_path,
-            "size_bytes": len(content_bytes),
-        })
-        logger.info("Uploaded %s (%d bytes)", storage_path, len(content_bytes))
+            uploaded.append({
+                "name": name,
+                "storage_path": storage_path,
+                "size_bytes": len(content_bytes),
+            })
+            logger.info("Uploaded %s (%d bytes)", storage_path, len(content_bytes))
+        except Exception as e:
+            logger.error("Failed to upload file %s: %s", name, e)
 
     return uploaded
 
@@ -59,31 +62,46 @@ def get_file_url(storage_path: str, expiry_minutes: int = 60) -> str:
 
 def download_file(storage_path: str) -> Optional[bytes]:
     """Download file content from Cloud Storage."""
-    bucket = get_storage_bucket()
-    blob = bucket.blob(storage_path)
-    if not blob.exists():
+    try:
+        bucket = get_storage_bucket()
+        blob = bucket.blob(storage_path)
+        if not blob.exists():
+            return None
+        return blob.download_as_bytes()
+    except Exception as e:
+        logger.error("Failed to download file %s: %s", storage_path, e)
         return None
-    return blob.download_as_bytes()
 
 
 def delete_blueprint_files(user_id: str, blueprint_id: str) -> int:
     """Delete all files for a blueprint. Returns count of deleted files."""
     bucket = get_storage_bucket()
     prefix = _blueprint_prefix(user_id, blueprint_id)
-    blobs = list(bucket.list_blobs(prefix=prefix))
+    try:
+        blobs = list(bucket.list_blobs(prefix=prefix))
+    except Exception as e:
+        logger.error("Failed to list blobs for deletion (prefix %s): %s", prefix, e)
+        return 0
     count = 0
     for blob in blobs:
-        blob.delete()
-        count += 1
-        logger.info("Deleted %s", blob.name)
+        try:
+            blob.delete()
+            count += 1
+            logger.info("Deleted %s", blob.name)
+        except Exception as e:
+            logger.error("Failed to delete blob %s: %s", blob.name, e)
     return count
 
 
 def get_storage_usage(user_id: str) -> int:
     """Calculate total bytes used by a user in Cloud Storage."""
-    bucket = get_storage_bucket()
-    prefix = f"blueprints/{user_id}/"
-    total = 0
-    for blob in bucket.list_blobs(prefix=prefix):
-        total += blob.size or 0
-    return total
+    try:
+        bucket = get_storage_bucket()
+        prefix = f"blueprints/{user_id}/"
+        total = 0
+        for blob in bucket.list_blobs(prefix=prefix):
+            total += blob.size or 0
+        return total
+    except Exception as e:
+        logger.error("Failed to calculate storage usage for user %s: %s", user_id, e)
+        return 0

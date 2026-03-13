@@ -582,19 +582,24 @@ Output ONLY JSON."""
 
 # ─── Main Pipeline ────────────────────────────────────────────────────
 
-async def generate_blueprint_kit(context: str, research: dict) -> list[dict]:
+async def generate_blueprint_kit(context: str, research: dict, progress_cb=None) -> list[dict]:
     """Generate complete blueprint kit from research context."""
     files = []
 
-    print("  [1/4] Generating master blueprint (smart model)...")
+    def report(step, total, msg):
+        print(f"  [{step}/{total}] {msg}")
+        if progress_cb:
+            progress_cb(step, total, msg)
+
+    report(1, 4, "Generating master blueprint (smart model)...")
     master = await generate_master_blueprint(context, research)
 
-    print("  [2/4] Rendering master HTML...")
+    report(2, 4, "Rendering master HTML...")
     master_html = render_master_blueprint(master)
     files.append({"name": "service-blueprint.html", "content": master_html})
 
     roles = master.get("roles", [])
-    print(f"  [3/4] Generating {len(roles)} department blueprints (2 calls each for depth)...")
+    report(3, 4, f"Generating {len(roles)} department blueprints (2 calls each for depth)...")
 
     batch_size = 3  # Smaller batches since each dept is now 2 calls
     for i in range(0, len(roles), batch_size):
@@ -617,7 +622,7 @@ async def generate_blueprint_kit(context: str, research: dict) -> list[dict]:
                 print(f"    RENDER ERROR {role['name']}: {e}")
 
     # ── Glossary & Appendix ──
-    print("  [4/4] Generating glossary & appendix (smart model)...")
+    report(4, 4, "Generating glossary & appendix (smart model)...")
     dept_names = [r["name"] for r in roles]
     try:
         glossary_data = await generate_glossary(context, research, dept_names)

@@ -4,6 +4,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
+from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.firestore_v1 import FieldFilter
 
 from firebase_config import get_firestore_client
@@ -19,137 +20,173 @@ def _now():
 
 def create_or_update_user(uid: str, email: Optional[str], name: Optional[str], photo: Optional[str]) -> dict:
     """Create or update user document on login (upsert)."""
-    db = get_firestore_client()
-    ref = db.collection("users").document(uid)
-    doc = ref.get()
+    try:
+        db = get_firestore_client()
+        ref = db.collection("users").document(uid)
+        doc = ref.get()
 
-    if doc.exists:
-        update_data = {
-            "last_login": _now(),
-        }
-        if email:
-            update_data["email"] = email
-        if name:
-            update_data["display_name"] = name
-        if photo:
-            update_data["photo_url"] = photo
-        ref.update(update_data)
-        return ref.get().to_dict()
-    else:
-        user_data = {
-            "uid": uid,
-            "email": email or "",
-            "display_name": name or "",
-            "photo_url": photo or "",
-            "plan": "free",
-            "created_at": _now(),
-            "last_login": _now(),
-            "blueprint_count": 0,
-            "storage_used_bytes": 0,
-        }
-        ref.set(user_data)
-        return user_data
+        if doc.exists:
+            update_data = {
+                "last_login": _now(),
+            }
+            if email:
+                update_data["email"] = email
+            if name:
+                update_data["display_name"] = name
+            if photo:
+                update_data["photo_url"] = photo
+            ref.update(update_data)
+            return ref.get().to_dict()
+        else:
+            user_data = {
+                "uid": uid,
+                "email": email or "",
+                "display_name": name or "",
+                "photo_url": photo or "",
+                "plan": "free",
+                "created_at": _now(),
+                "last_login": _now(),
+                "blueprint_count": 0,
+                "storage_used_bytes": 0,
+            }
+            ref.set(user_data)
+            return user_data
+    except GoogleAPICallError as e:
+        logger.error("Failed to create/update user %s: %s", uid, e)
+        return None
 
 
 def get_user(uid: str) -> Optional[dict]:
     """Get user profile by UID."""
-    db = get_firestore_client()
-    doc = db.collection("users").document(uid).get()
-    return doc.to_dict() if doc.exists else None
+    try:
+        db = get_firestore_client()
+        doc = db.collection("users").document(uid).get()
+        return doc.to_dict() if doc.exists else None
+    except GoogleAPICallError as e:
+        logger.error("Failed to get user %s: %s", uid, e)
+        return None
 
 
 def update_user(uid: str, data: dict) -> None:
     """Partial update of user document."""
-    db = get_firestore_client()
-    db.collection("users").document(uid).update(data)
+    try:
+        db = get_firestore_client()
+        db.collection("users").document(uid).update(data)
+    except GoogleAPICallError as e:
+        logger.error("Failed to update user %s: %s", uid, e)
+        return False
 
 
 # ─── Blueprints ─────────────────────────────────────────────────────────
 
 def create_blueprint(user_id: str, title: str, description: str) -> str:
     """Create a new blueprint document. Returns the auto-generated doc ID."""
-    db = get_firestore_client()
-    data = {
-        "user_id": user_id,
-        "title": title,
-        "business_description": description,
-        "status": "generating",
-        "folder_id": None,
-        "file_count": 0,
-        "files": [],
-        "answers": {},
-        "research": {},
-        "is_shared": False,
-        "share_token": None,
-        "created_at": _now(),
-        "updated_at": _now(),
-    }
-    _, ref = db.collection("blueprints").add(data)
-    return ref.id
+    try:
+        db = get_firestore_client()
+        data = {
+            "user_id": user_id,
+            "title": title,
+            "business_description": description,
+            "status": "generating",
+            "folder_id": None,
+            "file_count": 0,
+            "files": [],
+            "answers": {},
+            "research": {},
+            "is_shared": False,
+            "share_token": None,
+            "created_at": _now(),
+            "updated_at": _now(),
+        }
+        _, ref = db.collection("blueprints").add(data)
+        return ref.id
+    except GoogleAPICallError as e:
+        logger.error("Failed to create blueprint for user %s: %s", user_id, e)
+        return None
 
 
 def get_blueprint(blueprint_id: str) -> Optional[dict]:
     """Get a single blueprint by ID."""
-    db = get_firestore_client()
-    doc = db.collection("blueprints").document(blueprint_id).get()
-    if doc.exists:
-        data = doc.to_dict()
-        data["id"] = doc.id
-        return data
-    return None
+    try:
+        db = get_firestore_client()
+        doc = db.collection("blueprints").document(blueprint_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            return data
+        return None
+    except GoogleAPICallError as e:
+        logger.error("Failed to get blueprint %s: %s", blueprint_id, e)
+        return None
 
 
 def list_user_blueprints(user_id: str, folder_id: Optional[str] = None) -> list[dict]:
     """List blueprints for a user, optionally filtered by folder."""
-    db = get_firestore_client()
-    query = db.collection("blueprints").where(filter=FieldFilter("user_id", "==", user_id))
+    try:
+        db = get_firestore_client()
+        query = db.collection("blueprints").where(filter=FieldFilter("user_id", "==", user_id))
 
-    if folder_id is not None:
-        query = query.where(filter=FieldFilter("folder_id", "==", folder_id))
+        if folder_id is not None:
+            query = query.where(filter=FieldFilter("folder_id", "==", folder_id))
 
-    query = query.order_by("created_at", direction="DESCENDING")
-    results = []
-    for doc in query.stream():
-        data = doc.to_dict()
-        data["id"] = doc.id
-        results.append(data)
-    return results
+        query = query.order_by("created_at", direction="DESCENDING")
+        results = []
+        for doc in query.stream():
+            data = doc.to_dict()
+            data["id"] = doc.id
+            results.append(data)
+        return results
+    except GoogleAPICallError as e:
+        logger.error("Failed to list blueprints for user %s: %s", user_id, e)
+        return []
 
 
 def update_blueprint(blueprint_id: str, data: dict) -> None:
     """Update blueprint fields."""
-    db = get_firestore_client()
-    data["updated_at"] = _now()
-    db.collection("blueprints").document(blueprint_id).update(data)
+    try:
+        db = get_firestore_client()
+        data["updated_at"] = _now()
+        db.collection("blueprints").document(blueprint_id).update(data)
+    except GoogleAPICallError as e:
+        logger.error("Failed to update blueprint %s: %s", blueprint_id, e)
+        return False
 
 
 def delete_blueprint(blueprint_id: str) -> Optional[dict]:
     """Delete blueprint document. Returns the deleted doc data (for cleanup)."""
-    db = get_firestore_client()
-    ref = db.collection("blueprints").document(blueprint_id)
-    doc = ref.get()
-    if not doc.exists:
-        return None
-    data = doc.to_dict()
-    data["id"] = doc.id
-    ref.delete()
-    return data
+    try:
+        db = get_firestore_client()
+        ref = db.collection("blueprints").document(blueprint_id)
+        doc = ref.get()
+        if not doc.exists:
+            return None
+        data = doc.to_dict()
+        data["id"] = doc.id
+        ref.delete()
+        return data
+    except GoogleAPICallError as e:
+        logger.error("Failed to delete blueprint %s: %s", blueprint_id, e)
+        return False
 
 
 def get_shared_blueprint(share_token: str) -> Optional[dict]:
     """Get a blueprint by its share token."""
-    db = get_firestore_client()
-    query = (
-        db.collection("blueprints")
-        .where(filter=FieldFilter("is_shared", "==", True))
-        .where(filter=FieldFilter("share_token", "==", share_token))
-        .limit(1)
-    )
-    for doc in query.stream():
-        data = doc.to_dict()
-        data["id"] = doc.id
-        return data
-    return None
+    try:
+        db = get_firestore_client()
+        query = (
+            db.collection("blueprints")
+            .where(filter=FieldFilter("is_shared", "==", True))
+            .where(filter=FieldFilter("share_token", "==", share_token))
+            .limit(1)
+        )
+        for doc in query.stream():
+            data = doc.to_dict()
+            data["id"] = doc.id
+            return data
+        return None
+    except GoogleAPICallError as e:
+        logger.error("Failed to get shared blueprint with token %s: %s", share_token, e)
+        return None
 
 
 def generate_share_token() -> str:
@@ -161,73 +198,93 @@ def generate_share_token() -> str:
 
 def create_folder(user_id: str, name: str, color: str = "#6366f1") -> str:
     """Create a folder. Returns the auto-generated doc ID."""
-    db = get_firestore_client()
-    data = {
-        "user_id": user_id,
-        "name": name,
-        "color": color,
-        "blueprint_count": 0,
-        "created_at": _now(),
-    }
-    _, ref = db.collection("folders").add(data)
-    return ref.id
+    try:
+        db = get_firestore_client()
+        data = {
+            "user_id": user_id,
+            "name": name,
+            "color": color,
+            "blueprint_count": 0,
+            "created_at": _now(),
+        }
+        _, ref = db.collection("folders").add(data)
+        return ref.id
+    except GoogleAPICallError as e:
+        logger.error("Failed to create folder for user %s: %s", user_id, e)
+        return None
 
 
 def list_folders(user_id: str) -> list[dict]:
     """List all folders for a user."""
-    db = get_firestore_client()
-    query = (
-        db.collection("folders")
-        .where(filter=FieldFilter("user_id", "==", user_id))
-        .order_by("created_at")
-    )
-    results = []
-    for doc in query.stream():
-        data = doc.to_dict()
-        data["id"] = doc.id
-        results.append(data)
-    return results
+    try:
+        db = get_firestore_client()
+        query = (
+            db.collection("folders")
+            .where(filter=FieldFilter("user_id", "==", user_id))
+            .order_by("created_at")
+        )
+        results = []
+        for doc in query.stream():
+            data = doc.to_dict()
+            data["id"] = doc.id
+            results.append(data)
+        return results
+    except GoogleAPICallError as e:
+        logger.error("Failed to list folders for user %s: %s", user_id, e)
+        return []
 
 
 def get_folder(folder_id: str) -> Optional[dict]:
     """Get a single folder."""
-    db = get_firestore_client()
-    doc = db.collection("folders").document(folder_id).get()
-    if doc.exists:
-        data = doc.to_dict()
-        data["id"] = doc.id
-        return data
-    return None
+    try:
+        db = get_firestore_client()
+        doc = db.collection("folders").document(folder_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            return data
+        return None
+    except GoogleAPICallError as e:
+        logger.error("Failed to get folder %s: %s", folder_id, e)
+        return None
 
 
 def update_folder(folder_id: str, data: dict) -> None:
     """Update folder fields."""
-    db = get_firestore_client()
-    db.collection("folders").document(folder_id).update(data)
+    try:
+        db = get_firestore_client()
+        db.collection("folders").document(folder_id).update(data)
+    except GoogleAPICallError as e:
+        logger.error("Failed to update folder %s: %s", folder_id, e)
+        return False
 
 
 def delete_folder(folder_id: str) -> bool:
     """Delete a folder after moving its blueprints to root. Returns True if deleted."""
-    db = get_firestore_client()
-    ref = db.collection("folders").document(folder_id)
-    doc = ref.get()
-    if not doc.exists:
+    try:
+        db = get_firestore_client()
+        ref = db.collection("folders").document(folder_id)
+        doc = ref.get()
+        if not doc.exists:
+            return False
+
+        folder_data = doc.to_dict()
+        user_id = folder_data.get("user_id")
+
+        # Move all blueprints in this folder to root (folder_id = None)
+        blueprints = (
+            db.collection("blueprints")
+            .where(filter=FieldFilter("user_id", "==", user_id))
+            .where(filter=FieldFilter("folder_id", "==", folder_id))
+        )
+        for bp_doc in blueprints.stream():
+            bp_doc.reference.update({"folder_id": None, "updated_at": _now()})
+
+        ref.delete()
+        return True
+    except GoogleAPICallError as e:
+        logger.error("Failed to delete folder %s: %s", folder_id, e)
         return False
-
-    folder_data = doc.to_dict()
-    user_id = folder_data.get("user_id")
-
-    # Move all blueprints in this folder to root (folder_id = None)
-    blueprints = (
-        db.collection("blueprints")
-        .where(filter=FieldFilter("user_id", "==", user_id))
-        .where(filter=FieldFilter("folder_id", "==", folder_id))
-    )
-    for bp_doc in blueprints.stream():
-        bp_doc.reference.update({"folder_id": None, "updated_at": _now()})
-
-    ref.delete()
-    return True
 
 
 # ─── Teams (stubs for future) ───────────────────────────────────────────

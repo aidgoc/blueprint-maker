@@ -2061,38 +2061,85 @@ window.generateBlueprint = function() {
 
   var sub = document.createElement('p');
   sub.className = 'gen-sub';
-  sub.textContent = 'Using research data to create your complete blueprint kit. This takes 3-5 minutes.';
+  sub.textContent = 'Starting generation...';
   gc.appendChild(sub);
 
-  var generateTimedOut = false;
-  var generateTimeout = setTimeout(function() {
-    generateTimedOut = true;
-    showGenerateError(gc, 'Generation is taking longer than expected. The server may be overloaded. Please try again.');
-  }, 420000);
+  // Progress bar
+  var barWrap = document.createElement('div');
+  barWrap.style.cssText = 'width:100%;max-width:400px;height:6px;background:var(--border);border-radius:3px;margin:16px auto 8px;overflow:hidden;';
+  var barFill = document.createElement('div');
+  barFill.style.cssText = 'width:0%;height:100%;background:var(--primary);border-radius:3px;transition:width 0.5s ease;';
+  barWrap.appendChild(barFill);
+  gc.appendChild(barWrap);
 
+  var stepText = document.createElement('p');
+  stepText.style.cssText = 'font-size:12px;color:var(--text-secondary);margin-top:4px;';
+  stepText.textContent = 'Step 0 of 4';
+  gc.appendChild(stepText);
+
+  // Start generation
   fetchWithAuth('/api/generate', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({session_id: sessionId})
-  })
-  .then(function(data) {
-    clearTimeout(generateTimeout);
-    if (generateTimedOut) return;
-    if (data.status === 'done') {
-      if (data.persist_warning) {
-        showToast('Blueprint generated but could not be saved to your account. You can still download it.', 'info');
-      }
+  }).then(function(data) {
+    if (data.status === 'started') {
+      pollGenerationStatus(gc, sub, barFill, stepText);
+    } else if (data.status === 'done') {
+      // Backward compat if somehow sync
       showResults(data);
     } else {
-      throw new Error(data.detail || 'Generation did not complete. Please try again.');
+      throw new Error(data.detail || 'Failed to start generation');
     }
-  })
-  .catch(function(e) {
-    clearTimeout(generateTimeout);
-    if (generateTimedOut) return;
+  }).catch(function(e) {
     showGenerateError(gc, e.message);
   });
 };
+
+function pollGenerationStatus(gc, sub, barFill, stepText) {
+  var pollInterval = setInterval(function() {
+    fetch('/api/generate/status/' + sessionId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 'done') {
+          clearInterval(pollInterval);
+          if (data.persist_warning) {
+            showToast('Blueprint generated but could not be saved to your account. You can still download it.', 'info');
+          }
+          showResults(data);
+        } else if (data.status === 'generating') {
+          var pct = Math.round((data.step / data.total_steps) * 100);
+          barFill.style.width = pct + '%';
+          sub.textContent = data.message;
+          stepText.textContent = 'Step ' + data.step + ' of ' + data.total_steps;
+        } else if (data.status === 'error') {
+          clearInterval(pollInterval);
+          showGenerateError(gc, data.detail || 'Generation failed. Please try again.');
+        }
+      })
+      .catch(function() {
+        // Network error during poll — don't stop polling, just skip this tick
+      });
+  }, 3000);
+
+  // Safety timeout: 10 minutes
+  setTimeout(function() {
+    clearInterval(pollInterval);
+    // Check one final time
+    fetch('/api/generate/status/' + sessionId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 'done') {
+          showResults(data);
+        } else {
+          showGenerateError(gc, 'Generation is taking longer than expected. Please try again.');
+        }
+      })
+      .catch(function() {
+        showGenerateError(gc, 'Generation timed out. Please try again.');
+      });
+  }, 600000);
+}
 
 function showGenerateError(gc, message) {
   while (gc.firstChild) gc.removeChild(gc.firstChild);
