@@ -729,8 +729,8 @@ body {
       <div class="auth-toggle" id="authToggle">
         Don't have an account? <a id="authToggleLink" href="#">Sign up</a>
       </div>
-      <div class="auth-skip">
-        <a id="authSkipLink">Continue without account</a>
+      <div class="auth-skip" style="color:#94a3b8;font-size:0.85rem;margin-top:0.5rem;">
+        Free to use — sign up takes 10 seconds
       </div>
     </div>
   </div>
@@ -912,7 +912,6 @@ var sessionId = null;
 var totalSteps = 8;
 var currentStep = 0;
 var currentStage = 1;
-var isAnonymousFlow = false;
 var dashView = 'grid';
 var dashBlueprints = [];
 var dashFolders = [];
@@ -1047,17 +1046,12 @@ firebase.auth().onAuthStateChanged(function(user) {
         method: 'POST',
         headers: authHeaders()
       }).catch(function() {});
-      // If we are on the auth screen or initial load, go to dashboard
-      if (!isAnonymousFlow) {
-        showDashboard();
-      }
+      showDashboard();
     });
   } else {
     currentUser = null;
     authToken = null;
-    if (!isAnonymousFlow) {
-      showAuthScreen();
-    }
+    showAuthScreen();
   }
 });
 
@@ -1117,10 +1111,6 @@ document.getElementById('authForm').onsubmit = function(e) {
   });
 };
 
-document.getElementById('authSkipLink').onclick = function() {
-  isAnonymousFlow = true;
-  showLanding();
-};
 
 function friendlyAuthError(err) {
   var code = err.code || '';
@@ -1135,7 +1125,6 @@ function friendlyAuthError(err) {
 
 window.signOutUser = function() {
   firebase.auth().signOut().then(function() {
-    isAnonymousFlow = false;
     currentUser = null;
     authToken = null;
     showToast('Signed out.', 'info');

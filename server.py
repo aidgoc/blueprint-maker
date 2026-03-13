@@ -320,14 +320,14 @@ async def index():
 async def start_session(req: StartRequest, request: Request):
     enforce_rate_limit(request)
 
-    # Optional auth — associate session with user if authenticated
+    # Require auth — user must be signed in
     user = None
     if is_firebase_available():
+        from auth import get_current_user as _get_current_user
         try:
-            from auth import get_optional_user
-            user = await get_optional_user(request)
-        except Exception:
-            pass
+            user = await _get_current_user(request)
+        except HTTPException:
+            raise HTTPException(401, "Authentication required. Please sign in.")
 
     # Cleanup expired sessions before checking limits
     cleanup_expired_sessions()
