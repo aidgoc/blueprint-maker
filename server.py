@@ -622,6 +622,40 @@ async def answer_question(req: AnswerRequest, request: Request):
     }
 
 
+@app.post("/api/research-edits")
+async def save_research_edits(request: Request):
+    """Save user's edits to research findings."""
+    enforce_rate_limit(request)
+    body = await request.json()
+    sid = body.get("session_id")
+    edits = body.get("edits", {})
+
+    sess = get_session(sid, sessions)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    # Store edits in session
+    if "research_edits" not in sess:
+        sess["research_edits"] = {}
+
+    stage = sess.get("current_stage", 1)
+    sess["research_edits"][f"stage{stage}"] = edits
+
+    # Also update the actual research data so it's used in generation
+    research_key = f"stage{stage}"
+    if research_key in sess.get("research", {}):
+        r = sess["research"][research_key]
+        if "industry_overview" in edits:
+            r["industry_overview"] = edits["industry_overview"]
+        if "departments" in edits:
+            r["typical_departments"] = edits["departments"]
+        if "stages" in edits:
+            r["typical_process_stages"] = edits["stages"]
+
+    update_session(sid, sess)
+    return {"status": "ok"}
+
+
 async def _run_generation(session_id: str, sess: dict):
     """Run blueprint generation in background, updating progress in session."""
     try:

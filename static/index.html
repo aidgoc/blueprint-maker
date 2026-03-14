@@ -729,6 +729,21 @@ body {
             border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-bottom: 0.75rem; }
 .back-btn:hover { background: var(--surface); color: var(--text); }
 .back-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Editable Findings */
+.editable-findings { max-width: 600px; }
+.findings-hint { font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem; }
+.findings-edit { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; font-family: inherit;
+                 font-size: 0.9rem; resize: vertical; margin-bottom: 0.75rem; }
+.findings-edit:focus { outline: none; border-color: var(--brand); }
+.editable-tag-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+.editable-tag { cursor: text; position: relative; padding-right: 1.5rem; }
+.tag-remove { cursor: pointer; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+              color: rgba(0,0,0,0.4); font-weight: bold; }
+.tag-remove:hover { color: var(--red); }
+.add-tag-btn { background: none; border: 1px dashed var(--border); color: var(--text-light); padding: 0.3rem 0.75rem;
+               border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-bottom: 1rem; }
+.add-tag-btn:hover { border-color: var(--brand); color: var(--brand); }
 </style>
 <!-- Firebase SDK (compat mode) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1910,63 +1925,114 @@ function showResearching() {
 function showFindings(data) {
   var card = document.getElementById('findingsCard');
   card.classList.remove('hidden');
-  card.className = 'findings-card';
+  card.className = 'findings-card editable-findings';
   while (card.firstChild) card.removeChild(card.firstChild);
 
-  var h4 = document.createElement('h4');
-  h4.textContent = 'Here\'s what we found:';
-  card.appendChild(h4);
+  card.appendChild(_ce('h4', null, 'Research Findings \u2014 Review & Edit'));
+  card.appendChild(_ce('p', 'findings-hint', 'You can edit these findings before continuing. Changes will be used for blueprint generation.'));
 
+  // Industry overview (editable textarea)
   if (data.industry_overview) {
-    var row = document.createElement('div');
-    row.className = 'finding-row';
-    row.textContent = data.industry_overview;
-    card.appendChild(row);
+    card.appendChild(_ce('div', 'section-label', 'Industry Overview'));
+    var ta = document.createElement('textarea');
+    ta.className = 'findings-edit';
+    ta.id = 'editIndustryOverview';
+    ta.value = data.industry_overview;
+    ta.rows = 3;
+    card.appendChild(ta);
   }
 
+  // Departments (editable tags with add/remove)
   if (data.departments_found && data.departments_found.length) {
-    var label = document.createElement('div');
-    label.className = 'section-label';
-    label.textContent = 'Departments Identified';
-    card.appendChild(label);
-    var tags = document.createElement('div');
-    tags.className = 'findings-tags';
-    data.departments_found.forEach(function(d) {
-      var tag = document.createElement('span');
-      tag.className = 'f-tag';
-      tag.textContent = d;
-      tags.appendChild(tag);
-    });
-    card.appendChild(tags);
+    card.appendChild(_ce('div', 'section-label', 'Departments Identified'));
+    var dList = _ce('div', 'editable-tag-list');
+    dList.id = 'editDepartments';
+    data.departments_found.forEach(function(d) { _addEditableTag(dList, d); });
+    card.appendChild(dList);
+
+    var addDeptBtn = _ce('button', 'add-tag-btn', '+ Add Department');
+    addDeptBtn.onclick = function() {
+      var name = prompt('Department name:');
+      if (name && name.trim()) _addEditableTag(dList, name.trim());
+    };
+    card.appendChild(addDeptBtn);
   }
 
+  // Process stages (editable tags)
   if (data.stages_found && data.stages_found.length) {
-    var label2 = document.createElement('div');
-    label2.className = 'section-label';
-    label2.textContent = 'Process Stages Found';
-    card.appendChild(label2);
-    var flow = document.createElement('div');
-    flow.className = 'stage-flow';
-    data.stages_found.forEach(function(s, i) {
-      if (i > 0) { var a = document.createElement('span'); a.className = 'arrow-sep'; a.textContent = '\u2192'; flow.appendChild(a); }
-      var item = document.createElement('span');
-      item.className = 'stage-item';
-      item.textContent = s;
-      flow.appendChild(item);
-    });
-    card.appendChild(flow);
+    card.appendChild(_ce('div', 'section-label', 'Process Stages'));
+    var sList = _ce('div', 'editable-tag-list');
+    sList.id = 'editStages';
+    data.stages_found.forEach(function(s) { _addEditableTag(sList, s); });
+    card.appendChild(sList);
+
+    var addStageBtn = _ce('button', 'add-tag-btn', '+ Add Stage');
+    addStageBtn.onclick = function() {
+      var name = prompt('Stage name:');
+      if (name && name.trim()) _addEditableTag(sList, name.trim());
+    };
+    card.appendChild(addStageBtn);
   }
 
-  var contBtn = document.createElement('button');
-  contBtn.className = 'findings-continue';
-  contBtn.textContent = 'Continue';
+  // Continue button (saves edits)
+  var contBtn = _ce('button', 'findings-continue', 'Looks Good \u2014 Continue');
   contBtn.onclick = function() {
+    var edits = {};
+    var overviewEl = document.getElementById('editIndustryOverview');
+    if (overviewEl) edits.industry_overview = overviewEl.value;
+    var deptList = document.getElementById('editDepartments');
+    if (deptList) edits.departments = _collectTags(deptList);
+    var stageList = document.getElementById('editStages');
+    if (stageList) edits.stages = _collectTags(stageList);
+
+    // Save edits to session via API
+    if (Object.keys(edits).length > 0 && sessionId) {
+      fetchWithAuth('/api/research-edits', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({session_id: sessionId, edits: edits})
+      }).catch(function() {}); // fire and forget
+    }
     if (window._pendingQuestion) {
       showQuestion(window._pendingQuestion, window._pendingStep);
       window._pendingQuestion = null;
     }
   };
   card.appendChild(contBtn);
+}
+
+// Helper: create element with class and textContent (safe — no innerHTML)
+function _ce(tag, cls, text) {
+  var el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text) el.textContent = text;
+  return el;
+}
+
+function _addEditableTag(container, text) {
+  var tag = document.createElement('span');
+  tag.className = 'f-tag editable-tag';
+  tag.contentEditable = 'true';
+  tag.textContent = text;
+
+  var removeBtn = document.createElement('span');
+  removeBtn.className = 'tag-remove';
+  removeBtn.textContent = '\u00d7';
+  removeBtn.onclick = function(e) {
+    e.stopPropagation();
+    if (tag.parentNode) tag.parentNode.removeChild(tag);
+  };
+  tag.appendChild(removeBtn);
+  container.appendChild(tag);
+}
+
+function _collectTags(container) {
+  var tags = [];
+  var els = container.querySelectorAll('.editable-tag');
+  for (var i = 0; i < els.length; i++) {
+    var text = els[i].textContent.replace('\u00d7', '').trim();
+    if (text) tags.push(text);
+  }
+  return tags;
 }
 
 window.handleKey = function(event) {
