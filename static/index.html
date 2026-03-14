@@ -744,6 +744,10 @@ body {
 .add-tag-btn { background: none; border: 1px dashed var(--border); color: var(--text-light); padding: 0.3rem 0.75rem;
                border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-bottom: 1rem; }
 .add-tag-btn:hover { border-color: var(--brand); color: var(--brand); }
+
+/* Review Card */
+.review-card { max-width: 650px; margin: 0 auto; }
+.review-hint { font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem; }
 </style>
 <!-- Firebase SDK (compat mode) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -2142,62 +2146,75 @@ function showProfile(data) {
   var area = document.getElementById('profileContent');
   while (area.firstChild) area.removeChild(area.firstChild);
 
-  var card = document.createElement('div');
-  card.className = 'profile-card';
+  var card = _ce('div', 'profile-card review-card');
+  card.appendChild(_ce('h4', null, 'Final Review \u2014 Everything Looks Good?'));
+  card.appendChild(_ce('p', 'review-hint', 'Review your answers and research findings. Edit departments below or go back to change any answer.'));
+  card.appendChild(_ce('p', 'summary-text', data.profile_summary));
 
-  var h4 = document.createElement('h4');
-  h4.textContent = 'Blueprint Profile Ready';
-  card.appendChild(h4);
-
-  var pSum = document.createElement('p');
-  pSum.className = 'summary-text';
-  pSum.textContent = data.profile_summary;
-  card.appendChild(pSum);
-
+  // Research stats
   if (data.research_findings) {
     var rf = data.research_findings;
-    var stats = document.createElement('div');
-    stats.className = 'research-stats';
-    stats.textContent = 'Research found: ' + (rf.compliance_items || 0) + ' compliance standards, ' + (rf.kpis_found || 0) + ' KPI benchmarks, ' + (rf.documents_found || 0) + ' document templates, ' + (rf.safety_standards || 0) + ' safety standards';
-    card.appendChild(stats);
+    card.appendChild(_ce('div', 'research-stats',
+      (rf.compliance_items || 0) + ' compliance standards, ' +
+      (rf.kpis_found || 0) + ' KPI benchmarks, ' +
+      (rf.documents_found || 0) + ' document templates, ' +
+      (rf.safety_standards || 0) + ' safety standards'));
   }
 
+  // Departments (editable)
   if (data.departments && data.departments.length) {
-    var dLabel = document.createElement('div');
-    dLabel.className = 'section-label';
-    dLabel.textContent = 'Departments';
-    card.appendChild(dLabel);
-    var dTags = document.createElement('div');
-    dTags.className = 'dept-tags';
-    data.departments.forEach(function(d) {
-      var t = document.createElement('span'); t.className = 'dept-tag'; t.textContent = d; dTags.appendChild(t);
-    });
-    card.appendChild(dTags);
+    card.appendChild(_ce('div', 'section-label', 'Departments to Generate'));
+    var dList = _ce('div', 'editable-tag-list');
+    dList.id = 'reviewDepartments';
+    data.departments.forEach(function(d) { _addEditableTag(dList, d); });
+    card.appendChild(dList);
+
+    var addBtn = _ce('button', 'add-tag-btn', '+ Add Department');
+    addBtn.onclick = function() {
+      var name = prompt('Department name:');
+      if (name && name.trim()) _addEditableTag(dList, name.trim());
+    };
+    card.appendChild(addBtn);
   }
 
+  // Process stages
   if (data.stages && data.stages.length) {
-    var sLabel = document.createElement('div');
-    sLabel.className = 'section-label';
-    sLabel.textContent = 'Process Stages';
-    card.appendChild(sLabel);
-    var sFlow = document.createElement('div');
-    sFlow.className = 'stage-flow';
+    card.appendChild(_ce('div', 'section-label', 'Process Stages'));
+    var sFlow = _ce('div', 'stage-flow');
     data.stages.forEach(function(s, i) {
-      if (i > 0) { var a = document.createElement('span'); a.className = 'arrow-sep'; a.textContent = '\u2192'; sFlow.appendChild(a); }
-      var item = document.createElement('span'); item.className = 'stage-item'; item.textContent = s; sFlow.appendChild(item);
+      if (i > 0) sFlow.appendChild(_ce('span', 'arrow-sep', '\u2192'));
+      sFlow.appendChild(_ce('span', 'stage-item', s));
     });
     card.appendChild(sFlow);
   }
 
+  // Go back link
+  var backLink = _ce('button', 'back-btn', '\u2190 Go back and edit answers');
+  backLink.style.marginTop = '1rem';
+  backLink.onclick = function() { goBack(); };
+  card.appendChild(backLink);
+
   area.appendChild(card);
 
-  var btnWrap = document.createElement('div');
+  // Generate button
+  var btnWrap = _ce('div');
   btnWrap.style.textAlign = 'center';
-  var genBtn = document.createElement('button');
-  genBtn.className = 'generate-btn';
+  btnWrap.style.marginTop = '1.5rem';
+  var genBtn = _ce('button', 'generate-btn', 'Generate Blueprint Kit');
   genBtn.id = 'generateBtn';
-  genBtn.textContent = 'Generate Blueprint Kit';
-  genBtn.onclick = function() { genBtn.disabled = true; generateBlueprint(); };
+  genBtn.onclick = function() {
+    // Save department edits before generating
+    var deptList = document.getElementById('reviewDepartments');
+    if (deptList && sessionId) {
+      var depts = _collectTags(deptList);
+      fetchWithAuth('/api/research-edits', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({session_id: sessionId, edits: {departments: depts}})
+      }).catch(function() {});
+    }
+    genBtn.disabled = true;
+    generateBlueprint();
+  };
   btnWrap.appendChild(genBtn);
   area.appendChild(btnWrap);
 }
