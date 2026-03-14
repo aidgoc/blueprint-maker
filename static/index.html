@@ -1047,6 +1047,33 @@ function fetchWithAuth(url, options, retried) {
 }
 
 /* ══════════════════════════════════════
+   DOWNLOAD UTILITY
+   ══════════════════════════════════════ */
+function downloadFile(url, filename) {
+  // Download via fetch + Blob — no navigation, no state loss
+  var headers = {};
+  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+  return refreshTokenIfNeeded().then(function() {
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+    return fetch(url, {headers: headers});
+  }).then(function(response) {
+    if (!response.ok) throw new Error('Download failed');
+    return response.blob();
+  }).then(function(blob) {
+    var blobUrl = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename || 'blueprint.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  }).catch(function(e) {
+    showToast('Download failed: ' + e.message, 'error');
+  });
+}
+
+/* ══════════════════════════════════════
    TOAST
    ══════════════════════════════════════ */
 function showToast(message, type) {
@@ -1539,7 +1566,13 @@ function renderBlueprintsGrid(area, bps) {
 
     var menuItems = [
       { label: 'Preview', action: function() { showDetailScreen(bp); } },
-      { label: 'Download', action: function() { window.open('/api/download/' + encodeURIComponent(bp.session_id), '_blank'); } },
+      { label: 'Download', action: function() {
+        if (bp.format === 'blocks') {
+          downloadFile('/api/blueprints/' + bp.id + '/export/zip', (bp.name || 'blueprint') + '.zip');
+        } else {
+          downloadFile('/api/download/' + encodeURIComponent(bp.session_id), (bp.name || 'blueprint') + '.zip');
+        }
+      } },
       { label: 'Rename', action: function() { renameBlueprintModal(bp); } },
       { label: 'Move to Folder', action: function() { moveBlueprintModal(bp); } },
       { label: bp.is_shared ? 'Unshare' : 'Share', action: function() { toggleShare(bp); } },
@@ -1758,13 +1791,19 @@ function renderBlueprintDetail(bp) {
   var actions = document.createElement('div');
   actions.className = 'bp-detail-actions';
 
-  var dlBtn = document.createElement('a');
-  dlBtn.href = '/api/download/' + encodeURIComponent(bp.session_id);
+  var dlBtn = document.createElement('button');
   dlBtn.className = 'download-btn';
   dlBtn.style.fontSize = '13px';
   dlBtn.style.padding = '10px 22px';
   dlBtn.style.marginTop = '0';
   dlBtn.textContent = 'Download ZIP';
+  dlBtn.onclick = function() {
+    if (bp.format === 'blocks') {
+      downloadFile('/api/blueprints/' + bp.id + '/export/zip', (bp.name || 'blueprint') + '.zip');
+    } else {
+      downloadFile('/api/download/' + encodeURIComponent(bp.session_id), (bp.name || 'blueprint') + '.zip');
+    }
+  };
   actions.appendChild(dlBtn);
 
   var shareBtn = document.createElement('button');
@@ -2382,10 +2421,12 @@ function showResults(data) {
 
   var dw = document.createElement('div');
   dw.style.textAlign = 'center';
-  var dl = document.createElement('a');
-  dl.href = '/api/download/' + encodeURIComponent(sessionId);
+  var dl = document.createElement('button');
   dl.className = 'download-btn';
   dl.textContent = 'Download Blueprint Kit (.zip)';
+  dl.onclick = function() {
+    downloadFile('/api/download/' + encodeURIComponent(sessionId), 'blueprint.zip');
+  };
   dw.appendChild(dl);
 
   // Go to Dashboard button (for logged-in users)
