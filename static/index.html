@@ -1667,7 +1667,7 @@ function renameBlueprintModal(bp) {
       fetchWithAuth('/api/user/blueprints/' + bp.id, {
         method: 'PUT',
         headers: authHeaders(),
-        body: JSON.stringify({ name: newName })
+        body: JSON.stringify({ title: newName })
       }).then(function() { showToast('Renamed.', 'success'); loadDashboardData(); })
         .catch(function(e) { showToast('Failed to rename: ' + (e.message || 'Unknown error'), 'error'); });
     }
