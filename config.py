@@ -31,3 +31,6 @@ STORAGE_BUCKET = "blueprint-maker-storage-983595415114"
 
 # Block renderer version — increment when block renderers change
 CURRENT_RENDERER_VERSION = 1
+
+# Model for chat-based blueprint editing (fast, cheap)
+EDITOR_MODEL = os.getenv("EDITOR_MODEL", "google/gemini-2.5-flash")
