@@ -166,14 +166,13 @@ class StartRequest(BaseModel):
 
 class AnswerRequest(BaseModel):
     session_id: str
-    answer: str
+    answer: str = ""  # make optional for back navigation
+    back: bool = False  # new: go back to previous question
 
     @field_validator("answer")
     @classmethod
     def validate_answer(cls, v):
         v = v.strip()
-        if not v:
-            raise ValueError("Answer cannot be empty")
         if len(v) > MAX_INPUT_LENGTH:
             raise ValueError(f"Answer too long (max {MAX_INPUT_LENGTH} characters)")
         return v
@@ -389,6 +388,10 @@ async def start_session(req: StartRequest, request: Request):
         "generated_files": [],
         "created_at": time.time(),
         "user_id": user.uid if user else None,
+        "current_question": 0,
+        "research_edits": {},
+        "role_edits": {"added": [], "removed": [], "renamed": {}, "reordered": []},
+        "review_completed": False,
     }
     save_session(sid, sess_data, sessions)
     q = get_question_for_step(0, sessions[sid])
@@ -415,6 +418,38 @@ async def answer_question(req: AnswerRequest, request: Request):
     # Prevent concurrent modification while researching/generating
     if sess["status"] in ("researching", "generating", "compiling"):
         raise HTTPException(409, "Session is busy. Please wait.")
+
+    # Handle back navigation
+    if req.back:
+        step = sess["current_step"]
+        if step <= 0:
+            raise HTTPException(400, "Already at the first question")
+
+        sess["current_step"] -= 1
+        prev_step = sess["current_step"]
+        prev_stage = get_stage_for_step(prev_step)
+
+        # If going back across a stage boundary, restore previous stage
+        if prev_stage != sess.get("current_stage"):
+            sess["current_stage"] = prev_stage
+
+        update_session(req.session_id, sess)
+        q = get_question_for_step(prev_step, sess)
+        stage_info = STAGES[prev_stage]
+
+        # Pre-fill with previous answer
+        prev_answer = sess["answers"].get(q["key"], "")
+
+        return {
+            "done": False,
+            "question": q,
+            "step": prev_step,
+            "total_steps": get_total_questions(),
+            "stage": prev_stage,
+            "stage_name": stage_info["name"],
+            "stage_description": stage_info["description"],
+            "previous_answer": prev_answer,
+        }
 
     step = sess["current_step"]
     q = get_question_for_step(step, sess)
