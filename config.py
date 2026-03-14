@@ -28,3 +28,6 @@ PORT = int(os.environ.get("PORT", 8770))
 FIREBASE_PROJECT_ID = "studio-2972039985-2dbb1"
 FIRESTORE_DATABASE = "blueprint-maker"
 STORAGE_BUCKET = "blueprint-maker-storage-983595415114"
+
+# Block renderer version — increment when block renderers change
+CURRENT_RENDERER_VERSION = 1

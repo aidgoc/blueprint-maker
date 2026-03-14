@@ -93,6 +93,9 @@ def create_blueprint(user_id: str, title: str, description: str) -> str:
             "files": [],
             "answers": {},
             "research": {},
+            "format": "blocks",
+            "renderer_version": 1,
+            "section_order": [],
             "is_shared": False,
             "share_token": None,
             "created_at": _now(),
@@ -155,6 +158,8 @@ def update_blueprint(blueprint_id: str, data: dict) -> None:
 def delete_blueprint(blueprint_id: str) -> Optional[dict]:
     """Delete blueprint document. Returns the deleted doc data (for cleanup)."""
     try:
+        # Delete sections subcollection first
+        delete_all_sections(blueprint_id)
         db = get_firestore_client()
         ref = db.collection("blueprints").document(blueprint_id)
         doc = ref.get()
@@ -307,3 +312,92 @@ def add_team_member(team_id: str, uid: str, role: str = "member") -> None:
 def list_user_teams(uid: str) -> list[dict]:
     """Stub: List teams a user belongs to."""
     raise NotImplementedError("Teams feature is not yet available")
+
+
+# ─── Sections (subcollection under blueprints) ─────────────────────────
+
+
+def create_section(blueprint_id: str, section_id: str, title: str, icon: str,
+                   position: int, blocks: list[dict]) -> str:
+    """Create a section in a blueprint's sections subcollection."""
+    try:
+        db = get_firestore_client()
+        doc_ref = db.collection("blueprints").document(blueprint_id).collection("sections").document(section_id)
+        doc_ref.set({
+            "title": title,
+            "icon": icon,
+            "position": position,
+            "blocks": blocks,
+            "created_at": _now(),
+            "updated_at": _now(),
+        })
+        return section_id
+    except GoogleAPICallError as e:
+        logger.error("Failed to create section %s in blueprint %s: %s", section_id, blueprint_id, e)
+        raise
+
+
+def get_section(blueprint_id: str, section_id: str) -> dict | None:
+    """Get a single section by ID."""
+    try:
+        db = get_firestore_client()
+        doc = db.collection("blueprints").document(blueprint_id).collection("sections").document(section_id).get()
+        if not doc.exists:
+            return None
+        data = doc.to_dict()
+        data["id"] = doc.id
+        return data
+    except GoogleAPICallError as e:
+        logger.error("Failed to get section %s: %s", section_id, e)
+        return None
+
+
+def list_sections(blueprint_id: str) -> list[dict]:
+    """List all sections for a blueprint, ordered by position."""
+    try:
+        db = get_firestore_client()
+        docs = db.collection("blueprints").document(blueprint_id).collection("sections").order_by("position").stream()
+        sections = []
+        for doc in docs:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            sections.append(data)
+        return sections
+    except GoogleAPICallError as e:
+        logger.error("Failed to list sections for blueprint %s: %s", blueprint_id, e)
+        return []
+
+
+def update_section(blueprint_id: str, section_id: str, data: dict) -> None:
+    """Update a section's fields."""
+    try:
+        db = get_firestore_client()
+        data["updated_at"] = _now()
+        db.collection("blueprints").document(blueprint_id).collection("sections").document(section_id).update(data)
+    except GoogleAPICallError as e:
+        logger.error("Failed to update section %s: %s", section_id, e)
+        raise
+
+
+def delete_all_sections(blueprint_id: str) -> None:
+    """Delete all sections for a blueprint."""
+    try:
+        db = get_firestore_client()
+        docs = db.collection("blueprints").document(blueprint_id).collection("sections").stream()
+        for doc in docs:
+            doc.reference.delete()
+    except GoogleAPICallError as e:
+        logger.error("Failed to delete sections for blueprint %s: %s", blueprint_id, e)
+
+
+def update_section_order(blueprint_id: str, section_order: list[str]) -> None:
+    """Update the section_order array on the blueprint document."""
+    try:
+        db = get_firestore_client()
+        db.collection("blueprints").document(blueprint_id).update({
+            "section_order": section_order,
+            "updated_at": _now(),
+        })
+    except GoogleAPICallError as e:
+        logger.error("Failed to update section order for blueprint %s: %s", blueprint_id, e)
+        raise
