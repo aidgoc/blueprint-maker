@@ -1197,6 +1197,145 @@ async def update_blueprint_section(blueprint_id: str, section_id: str, request: 
     return {"status": "ok"}
 
 
+@app.post("/api/blueprints/{blueprint_id}/chat")
+async def chat_edit_blueprint(blueprint_id: str, request: Request):
+    """Chat-based editing: user sends message, LLM modifies blocks."""
+    enforce_rate_limit(request)
+    from auth import get_current_user
+    from db import get_blueprint, list_sections, get_section, update_section, update_blueprint
+    from block_renderer import render_block
+    from chat_editor import build_edit_prompt, call_edit_llm, parse_edit_response, apply_changes_to_blocks
+
+    user = await get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+    if bp.get("format") != "blocks":
+        raise HTTPException(400, "Chat editing not available for legacy blueprints")
+
+    body = await request.json()
+    message = body.get("message", "").strip()
+    current_section_id = body.get("section_id")  # which section user is viewing
+    if not message:
+        raise HTTPException(400, "message is required")
+
+    # Get all sections for context
+    all_sections = list_sections(blueprint_id)
+    section_summaries = [{"id": s["id"], "title": s["title"]} for s in all_sections]
+
+    # Get current section blocks
+    current_blocks = []
+    if current_section_id:
+        section = get_section(blueprint_id, current_section_id)
+        if section:
+            current_blocks = section.get("blocks", [])
+
+    # Load chat history from Firestore
+    chat_history = _get_chat_history(blueprint_id)
+
+    # Build prompt and call LLM
+    prompt = build_edit_prompt(section_summaries, current_blocks, current_section_id or "", chat_history, message)
+
+    try:
+        raw_response = await call_edit_llm(prompt)
+    except Exception as e:
+        logger.error("Chat LLM call failed for blueprint %s: %s", blueprint_id, e)
+        raise HTTPException(502, "AI editing service temporarily unavailable. Please try again.")
+
+    parsed = parse_edit_response(raw_response)
+    if not parsed:
+        # LLM returned something unparseable — return the raw text as a conversational response
+        _save_chat_messages(blueprint_id, message, raw_response, [])
+        return {"response": raw_response, "sections": []}
+
+    # Apply changes to each affected section
+    result_sections = []
+    all_undo_entries = []
+
+    for section_change in parsed.get("sections", []):
+        sid = section_change.get("section_id")
+        changes = section_change.get("changes", [])
+        if not sid or not changes:
+            continue
+
+        section_doc = get_section(blueprint_id, sid)
+        if not section_doc:
+            continue
+
+        blocks = section_doc.get("blocks", [])
+        updated_blocks, undo_entries = apply_changes_to_blocks(blocks, changes)
+
+        # Re-render html_cache for changed blocks
+        changed_ids = {c["block_id"] for c in changes}
+        for block in updated_blocks:
+            if block["id"] in changed_ids or not block.get("html_cache"):
+                block["html_cache"] = render_block(block)
+
+        # Save to Firestore
+        update_section(blueprint_id, sid, {"blocks": updated_blocks})
+
+        result_sections.append({"section_id": sid, "changes": changes})
+        all_undo_entries.extend([{**u, "section_id": sid} for u in undo_entries])
+
+    # Save chat history
+    _save_chat_messages(blueprint_id, message, parsed.get("response", ""), all_undo_entries)
+
+    return {
+        "response": parsed.get("response", "Changes applied."),
+        "sections": result_sections,
+    }
+
+
+def _get_chat_history(blueprint_id: str, limit: int = 10) -> list[dict]:
+    """Get recent chat messages for a blueprint."""
+    try:
+        from firebase_config import get_firestore_client
+        db = get_firestore_client()
+        docs = (db.collection("blueprints").document(blueprint_id)
+                .collection("chat_history")
+                .order_by("created_at", direction="DESCENDING")
+                .limit(limit * 2)  # Get both user and assistant messages
+                .stream())
+        messages = []
+        for doc in docs:
+            data = doc.to_dict()
+            messages.append({"role": data.get("role"), "content": data.get("content")})
+        messages.reverse()  # Chronological order
+        return messages[-limit * 2:]  # Last N exchanges
+    except Exception:
+        return []
+
+
+def _save_chat_messages(blueprint_id: str, user_message: str, assistant_response: str,
+                        undo_entries: list[dict]) -> None:
+    """Save user and assistant messages to chat history."""
+    try:
+        from firebase_config import get_firestore_client
+        from datetime import datetime, timezone
+        db = get_firestore_client()
+        col = db.collection("blueprints").document(blueprint_id).collection("chat_history")
+
+        now = datetime.now(timezone.utc)
+        col.add({"role": "user", "content": user_message, "changes_made": None, "created_at": now})
+        col.add({
+            "role": "assistant",
+            "content": assistant_response,
+            "changes_made": [{"section_id": u.get("section_id"), "block_id": u.get("block_id"),
+                              "action": u.get("action"), "before": u.get("before"), "after": u.get("after")}
+                             for u in undo_entries] if undo_entries else None,
+            "created_at": now,
+        })
+
+        # Trim to 200 messages max
+        all_docs = list(col.order_by("created_at").stream())
+        if len(all_docs) > 200:
+            for doc in all_docs[:len(all_docs) - 200]:
+                doc.reference.delete()
+
+    except Exception as e:
+        logger.warning("Failed to save chat history for %s: %s", blueprint_id, e)
+
+
 @app.put("/api/blueprints/{blueprint_id}/section-order")
 async def update_blueprint_section_order(blueprint_id: str, request: Request):
     """Reorder sections."""
