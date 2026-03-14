@@ -217,7 +217,6 @@
     },
 
     _deleteBlock: function(blockId) {
-      if (!confirm('Delete this block?')) return;
       for (var i = 0; i < sectionBlocks.length; i++) {
         if (sectionBlocks[i].id === blockId) {
           var removed = sectionBlocks.splice(i, 1)[0];
@@ -230,9 +229,39 @@
           this.renderAll();
           this._initDragDrop();
           this._scheduleSave();
+          this._showUndoToast('Block deleted');
           break;
         }
       }
+    },
+
+    _showUndoToast: function(message) {
+      var existing = document.getElementById('undoToast');
+      if (existing) existing.parentNode.removeChild(existing);
+
+      var toast = document.createElement('div');
+      toast.id = 'undoToast';
+      toast.className = 'undo-toast';
+
+      var msg = document.createElement('span');
+      msg.textContent = message;
+      toast.appendChild(msg);
+
+      var undoBtn = document.createElement('button');
+      undoBtn.className = 'undo-toast-btn';
+      undoBtn.textContent = 'Undo';
+      undoBtn.onclick = function() {
+        if (window.UndoManager) UndoManager.undo();
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      };
+      toast.appendChild(undoBtn);
+
+      var editorMain = document.getElementById('editorMain');
+      if (editorMain) editorMain.appendChild(toast);
+
+      setTimeout(function() {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 5000);
     },
 
     // --- Insert Palette ---
