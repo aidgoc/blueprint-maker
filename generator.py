@@ -584,7 +584,15 @@ Output ONLY JSON."""
 
 async def generate_blueprint_kit(context: str, research: dict, progress_cb=None) -> tuple[list[dict], dict]:
     """Generate complete blueprint kit from research context.
-    Returns (files, raw_results) tuple."""
+    Returns (files, raw_results) tuple.
+
+    Progress steps (reported to caller via progress_cb):
+      1/5  — Master blueprint generation
+      2/5  — Master HTML rendering + start departments
+      3/5  — Department blueprints (sub-progress in message text)
+      4/5  — Glossary & appendix
+      5/5  — Saving to account  (reported by _run_generation)
+    """
     files = []
     raw_master = None
     raw_departments = []
@@ -595,20 +603,22 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
         if progress_cb:
             progress_cb(step, total, msg)
 
-    report(1, 4, "Generating master blueprint (smart model)...")
+    # Steps: 1=master, 2=departments, 3=glossary, 4=saving (reported by caller), 5=done
+    report(1, 5, "Generating master blueprint...")
     master = await generate_master_blueprint(context, research)
     raw_master = master
 
-    report(2, 4, "Rendering master HTML...")
     master_html = render_master_blueprint(master)
     files.append({"name": "service-blueprint.html", "content": master_html})
 
     roles = master.get("roles", [])
-    report(3, 4, f"Generating {len(roles)} department blueprints (2 calls each for depth)...")
+    total_depts = len(roles)
+    done_depts = 0
 
     batch_size = 3  # Smaller batches since each dept is now 2 calls
     for i in range(0, len(roles), batch_size):
         batch = roles[i:i + batch_size]
+        report(2, 5, f"Generating departments ({done_depts}/{total_depts})...")
         print(f"    Batch {i // batch_size + 1}: {', '.join(r['name'] for r in batch)}")
         tasks = [
             generate_department(r["name"], r["id"], context, research)
@@ -619,6 +629,7 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
         for role, result in zip(batch, results):
             if isinstance(result, Exception):
                 print(f"    ERROR {role['name']}: {result}")
+                done_depts += 1
                 continue
             try:
                 html = render_department_blueprint(result, master.get("company_name", ""))
@@ -626,9 +637,12 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
                 raw_departments.append(result)
             except Exception as e:
                 print(f"    RENDER ERROR {role['name']}: {e}")
+            done_depts += 1
+        # Update progress after each batch completes
+        report(2, 5, f"Generating departments ({done_depts}/{total_depts})...")
 
     # ── Glossary & Appendix ──
-    report(4, 4, "Generating glossary & appendix (smart model)...")
+    report(3, 5, "Generating glossary & appendix...")
     dept_names = [r["name"] for r in roles]
     try:
         glossary_data = await generate_glossary(context, research, dept_names)

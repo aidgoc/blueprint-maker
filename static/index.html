@@ -2555,7 +2555,7 @@ window.generateBlueprint = function() {
 
   var stepText = document.createElement('p');
   stepText.style.cssText = 'font-size:12px;color:var(--text-secondary);margin-top:4px;';
-  stepText.textContent = 'Step 0 of 4';
+  stepText.textContent = 'Step 0 of 5';
   gc.appendChild(stepText);
 
   // Start generation
@@ -2577,6 +2577,26 @@ window.generateBlueprint = function() {
   });
 };
 
+function transitionToResults(gc, sub, barFill, stepText, data) {
+  // Show 100% completion briefly before transitioning
+  barFill.style.width = '100%';
+  sub.textContent = 'Done!';
+  stepText.textContent = data.file_count + ' files generated';
+
+  if (data.persist_warning) {
+    showToast('Blueprint generated but could not be saved to your account. You can still download it.', 'info');
+  }
+
+  setTimeout(function() {
+    if (data.blueprint_id) {
+      EditorScreen._fallbackData = data;
+      EditorScreen.show(data.blueprint_id);
+    } else {
+      showResults(data);
+    }
+  }, 800);
+}
+
 function pollGenerationStatus(gc, sub, barFill, stepText) {
   var pollInterval = setInterval(function() {
     fetch('/api/generate/status/' + sessionId)
@@ -2584,14 +2604,7 @@ function pollGenerationStatus(gc, sub, barFill, stepText) {
       .then(function(data) {
         if (data.status === 'done') {
           clearInterval(pollInterval);
-          if (data.persist_warning) {
-            showToast('Blueprint generated but could not be saved to your account. You can still download it.', 'info');
-          }
-          if (data.blueprint_id) {
-            EditorScreen.show(data.blueprint_id);
-            return;
-          }
-          showResults(data);
+          transitionToResults(gc, sub, barFill, stepText, data);
         } else if (data.status === 'generating') {
           var pct = Math.round((data.step / data.total_steps) * 100);
           barFill.style.width = pct + '%';
@@ -2615,11 +2628,7 @@ function pollGenerationStatus(gc, sub, barFill, stepText) {
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.status === 'done') {
-          if (data.blueprint_id) {
-            EditorScreen.show(data.blueprint_id);
-            return;
-          }
-          showResults(data);
+          transitionToResults(gc, sub, barFill, stepText, data);
         } else {
           showGenerateError(gc, 'Generation is taking longer than expected. Please try again.');
         }
@@ -2659,26 +2668,47 @@ function showResults(data) {
   var card = document.createElement('div');
   card.className = 'result-card';
 
+  // Success checkmark icon (safe DOM construction)
+  var icon = document.createElement('div');
+  icon.style.cssText = 'width:48px;height:48px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;';
+  var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '24'); svg.setAttribute('height', '24');
+  svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', '#fff');
+  svg.setAttribute('stroke-width', '2.5'); svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('viewBox', '0 0 24 24');
+  var polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  polyline.setAttribute('points', '20 6 9 17 4 12');
+  svg.appendChild(polyline);
+  icon.appendChild(svg);
+  card.appendChild(icon);
+
   var h3 = document.createElement('h3');
-  h3.textContent = 'Your Blueprint Kit is ready';
+  h3.style.textAlign = 'center';
+  h3.textContent = 'Your Blueprint Kit is Ready';
   card.appendChild(h3);
 
-  // Saved confirmation for logged-in users
+  // Cloud save status for logged-in users
   if (currentUser) {
     var savedMsg = document.createElement('p');
-    savedMsg.style.cssText = 'font-size:13px;color:var(--green);font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px;';
-    savedMsg.innerHTML = '&#10003; Saved to your dashboard';
+    savedMsg.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;';
+    if (data.persist_warning) {
+      savedMsg.style.color = 'var(--amber, #D97706)';
+      savedMsg.textContent = '\u26A0 Could not save to cloud \u2014 download your files below';
+    } else {
+      savedMsg.style.color = 'var(--green)';
+      savedMsg.textContent = '\u2713 Saved to your account';
+    }
     card.appendChild(savedMsg);
   }
 
   var countP = document.createElement('p');
-  countP.style.cssText = 'font-size:14px;color:var(--text-secondary);margin-bottom:20px;';
+  countP.style.cssText = 'font-size:14px;color:var(--text-secondary);margin-bottom:20px;text-align:center;';
   countP.textContent = data.file_count + ' files generated';
   card.appendChild(countP);
 
   var ul = document.createElement('ul');
   ul.className = 'file-list';
-  data.files.forEach(function(f) {
+  (data.files || []).forEach(function(f) {
     var li = document.createElement('li');
     var fn = document.createElement('span'); fn.className = 'fname'; fn.textContent = f; li.appendChild(fn);
     var lk = document.createElement('a');
@@ -2689,7 +2719,7 @@ function showResults(data) {
   card.appendChild(ul);
 
   var dw = document.createElement('div');
-  dw.style.textAlign = 'center';
+  dw.style.cssText = 'text-align:center;margin-top:8px;';
   var dl = document.createElement('button');
   dl.className = 'download-btn';
   dl.textContent = 'Download Blueprint Kit (.zip)';
@@ -2702,8 +2732,8 @@ function showResults(data) {
   if (currentUser) {
     dw.appendChild(document.createElement('br'));
     var dashBtn = document.createElement('button');
-    dashBtn.className = 'start-btn';
-    dashBtn.style.cssText = 'margin-top:12px;background:var(--brand);';
+    dashBtn.className = 'restart-btn';
+    dashBtn.style.cssText = 'margin-top:12px;border-color:var(--brand);color:var(--brand);';
     dashBtn.textContent = 'Go to Dashboard';
     dashBtn.onclick = function() { showDashboard(); };
     dw.appendChild(dashBtn);
@@ -2712,7 +2742,7 @@ function showResults(data) {
   dw.appendChild(document.createElement('br'));
   var rBtn = document.createElement('button');
   rBtn.className = 'restart-btn';
-  rBtn.textContent = 'Generate Again';
+  rBtn.textContent = 'Generate Another';
   rBtn.onclick = function() { window.location.reload(); };
   dw.appendChild(rBtn);
 
@@ -2736,13 +2766,24 @@ window.EditorScreen = {
   loadSections: function() {
     fetchWithAuth('/api/blueprints/' + editorBlueprintId + '/sections', {headers: authHeaders()})
     .then(function(sections) {
+      if (!sections || sections.length === 0) {
+        showToast('No sections found — showing file list instead.', 'info');
+        if (EditorScreen._fallbackData) { showResults(EditorScreen._fallbackData); }
+        else { showDashboard(); }
+        return;
+      }
       editorSections = sections;
       EditorScreen.renderSidebar();
       if (sections.length > 0) {
         EditorScreen.loadSection(sections[0].id);
       }
     })
-    .catch(function(e) { showToast(friendlyError(e), 'error'); });
+    .catch(function(e) {
+      showToast(friendlyError(e), 'error');
+      // Editor can't load — fall back to results or dashboard
+      if (EditorScreen._fallbackData) { showResults(EditorScreen._fallbackData); }
+      else { showDashboard(); }
+    });
   },
 
   renderSidebar: function() {

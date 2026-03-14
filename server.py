@@ -336,7 +336,8 @@ def _persist_blueprint_to_firebase(user_id: str, session: dict) -> bool:
                 logger.info("Saved %d block sections for blueprint %s", len(section_order), bp_id)
 
         except Exception as e:
-            logger.error("Failed to save blocks for %s (falling back to legacy): %s", bp_id, e)
+            import traceback
+            logger.error("Failed to save blocks for %s (falling back to legacy): %s\n%s", bp_id, e, traceback.format_exc())
             # Legacy HTML files are already uploaded -- blueprint still works
 
         return True
@@ -665,16 +666,28 @@ async def _run_generation(session_id: str, sess: dict):
         files, raw_results = await generate_blueprint_kit(sess["master_context"], sess.get("research", {}), progress_cb=progress_callback)
         sess["generated_files"] = files
         sess["raw_results"] = raw_results
+
+        # Persist to Firebase BEFORE marking as done so the poll always has blueprint_id
+        user_id = sess.get("user_id")
+        persist_warning = False
+        if user_id and is_firebase_available():
+            progress_callback(4, 5, "Saving to your account...")
+            try:
+                import asyncio as _aio
+                loop = _aio.get_event_loop()
+                persist_ok = await loop.run_in_executor(None, _persist_blueprint_to_firebase, user_id, sess)
+            except Exception as e:
+                logger.error("Persist failed for session %s: %s", session_id, e)
+                persist_ok = False
+            if not persist_ok:
+                persist_warning = True
+
+        # Now mark as generated — poll will see status=done with blueprint_id already set
+        sess["persist_warning"] = persist_warning
         sess["status"] = "generated"
-        sess["generate_progress"] = {"step": 4, "total_steps": 4, "message": "Done!"}
+        sess["generate_progress"] = {"step": 5, "total_steps": 5, "message": "Done!"}
         update_session(session_id, sess)
 
-        # Persist to Firebase
-        user_id = sess.get("user_id")
-        if user_id and is_firebase_available():
-            persist_ok = _persist_blueprint_to_firebase(user_id, sess)
-            if not persist_ok:
-                sess["persist_warning"] = True
     except Exception as e:
         logger.error("Generation failed for session %s: %s", session_id, e)
         sess["status"] = "ready"  # Allow retry
@@ -700,7 +713,7 @@ async def generate_blueprint(req: GenerateRequest, request: Request):
         raise HTTPException(400, "Complete the questionnaire first.")
 
     sess["status"] = "generating"
-    sess["generate_progress"] = {"step": 0, "total_steps": 4, "message": "Starting generation..."}
+    sess["generate_progress"] = {"step": 0, "total_steps": 5, "message": "Starting generation..."}
 
     # Launch generation in background
     asyncio.create_task(_run_generation(req.session_id, sess))
@@ -835,11 +848,20 @@ async def generate_status(session_id: str, request: Request):
 
     if sess["status"] == "generated":
         files = _recover_files_from_storage(sess)
+        bp_id = sess.get("blueprint_id")
+        has_editor = False
+        if bp_id:
+            try:
+                from db import get_blueprint as _get_bp
+                _bp = _get_bp(bp_id)
+                has_editor = bool(_bp and _bp.get("format") == "blocks")
+            except Exception:
+                pass
         response = {
             "status": "done",
             "file_count": len(files),
             "files": [f["name"] for f in files],
-            "blueprint_id": sess.get("blueprint_id"),
+            "blueprint_id": bp_id if has_editor else None,
         }
         if sess.get("persist_warning"):
             response["persist_warning"] = True
@@ -848,7 +870,7 @@ async def generate_status(session_id: str, request: Request):
         return {
             "status": "generating",
             "step": progress["step"] if progress else 0,
-            "total_steps": progress["total_steps"] if progress else 4,
+            "total_steps": progress["total_steps"] if progress else 5,
             "message": progress["message"] if progress else "Working...",
         }
     elif sess.get("generate_error"):
