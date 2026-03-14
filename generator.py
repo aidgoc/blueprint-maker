@@ -582,9 +582,13 @@ Output ONLY JSON."""
 
 # ─── Main Pipeline ────────────────────────────────────────────────────
 
-async def generate_blueprint_kit(context: str, research: dict, progress_cb=None) -> list[dict]:
-    """Generate complete blueprint kit from research context."""
+async def generate_blueprint_kit(context: str, research: dict, progress_cb=None) -> tuple[list[dict], dict]:
+    """Generate complete blueprint kit from research context.
+    Returns (files, raw_results) tuple."""
     files = []
+    raw_master = None
+    raw_departments = []
+    raw_glossary = None
 
     def report(step, total, msg):
         print(f"  [{step}/{total}] {msg}")
@@ -593,6 +597,7 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
 
     report(1, 4, "Generating master blueprint (smart model)...")
     master = await generate_master_blueprint(context, research)
+    raw_master = master
 
     report(2, 4, "Rendering master HTML...")
     master_html = render_master_blueprint(master)
@@ -618,6 +623,7 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
             try:
                 html = render_department_blueprint(result, master.get("company_name", ""))
                 files.append({"name": f"{role['id']}-blueprint.html", "content": html})
+                raw_departments.append(result)
             except Exception as e:
                 print(f"    RENDER ERROR {role['name']}: {e}")
 
@@ -626,9 +632,11 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
     dept_names = [r["name"] for r in roles]
     try:
         glossary_data = await generate_glossary(context, research, dept_names)
+        raw_glossary = glossary_data
         glossary_html = render_glossary(glossary_data, master.get("company_name", ""))
         files.append({"name": "glossary-appendix.html", "content": glossary_html})
     except Exception as e:
         print(f"    GLOSSARY ERROR: {e}")
 
-    return files
+    raw_results = {"master": raw_master, "departments": raw_departments, "glossary": raw_glossary}
+    return files, raw_results

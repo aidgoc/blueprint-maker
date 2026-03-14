@@ -291,6 +291,55 @@ def _persist_blueprint_to_firebase(user_id: str, session: dict) -> bool:
 
         session["blueprint_id"] = bp_id
         logger.info("Persisted blueprint %s for user %s", bp_id, user_id)
+
+        # Save blocks to Firestore sections
+        try:
+            from block_converter import convert_department_to_blocks, convert_master_to_blocks, convert_glossary_to_blocks
+            from block_renderer import render_block, CURRENT_RENDERER_VERSION
+            from block_types import slugify
+            from db import create_section, update_section_order
+
+            raw = session.get("raw_results", {})
+            if raw:
+                section_order = []
+                position = 0
+
+                # Master section
+                if raw.get("master"):
+                    master_blocks = convert_master_to_blocks(raw["master"])
+                    for block in master_blocks:
+                        block["html_cache"] = render_block(block)
+                    create_section(bp_id, "master_blueprint", "Master Blueprint", "", position, master_blocks)
+                    section_order.append("master_blueprint")
+                    position += 1
+
+                # Department sections
+                for dept in raw.get("departments", []):
+                    dept_blocks = convert_department_to_blocks(dept)
+                    for block in dept_blocks:
+                        block["html_cache"] = render_block(block)
+                    dept_name = dept.get("department", "Department")
+                    sid = slugify(dept_name)
+                    create_section(bp_id, sid, dept_name, "", position, dept_blocks)
+                    section_order.append(sid)
+                    position += 1
+
+                # Glossary section
+                if raw.get("glossary"):
+                    glossary_blocks = convert_glossary_to_blocks(raw["glossary"])
+                    for block in glossary_blocks:
+                        block["html_cache"] = render_block(block)
+                    create_section(bp_id, "glossary", "Glossary & Appendix", "", position, glossary_blocks)
+                    section_order.append("glossary")
+
+                update_section_order(bp_id, section_order)
+                update_blueprint(bp_id, {"format": "blocks", "renderer_version": CURRENT_RENDERER_VERSION})
+                logger.info("Saved %d block sections for blueprint %s", len(section_order), bp_id)
+
+        except Exception as e:
+            logger.error("Failed to save blocks for %s (falling back to legacy): %s", bp_id, e)
+            # Legacy HTML files are already uploaded -- blueprint still works
+
         return True
 
     except Exception as e:
@@ -544,8 +593,9 @@ async def _run_generation(session_id: str, sess: dict):
         def progress_callback(step: int, total: int, message: str):
             sess["generate_progress"] = {"step": step, "total_steps": total, "message": message}
 
-        files = await generate_blueprint_kit(sess["master_context"], sess.get("research", {}), progress_cb=progress_callback)
+        files, raw_results = await generate_blueprint_kit(sess["master_context"], sess.get("research", {}), progress_cb=progress_callback)
         sess["generated_files"] = files
+        sess["raw_results"] = raw_results
         sess["status"] = "generated"
         sess["generate_progress"] = {"step": 4, "total_steps": 4, "message": "Done!"}
         update_session(session_id, sess)
@@ -1066,6 +1116,144 @@ async def delete_folder_endpoint(folder_id: str, request: Request):
     except Exception as e:
         logger.error("Failed to delete folder: %s", e)
         raise HTTPException(500, "Failed to delete folder")
+
+
+# ─── Section API Endpoints ──────────────────────────────────────────
+
+
+@app.get("/api/blueprints/{blueprint_id}/sections")
+async def list_blueprint_sections(blueprint_id: str, request: Request):
+    """List sections for a blueprint (titles, IDs, positions only)."""
+    enforce_rate_limit(request)
+    from auth import get_current_user
+    from db import get_blueprint, list_sections
+
+    user = await get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or (bp.get("user_id") != user.uid and not bp.get("is_shared")):
+        raise HTTPException(404, "Blueprint not found")
+    if bp.get("format") != "blocks":
+        raise HTTPException(400, "Legacy blueprint — sections not available")
+
+    sections = list_sections(blueprint_id)
+    return [{"id": s["id"], "title": s["title"], "icon": s.get("icon", ""),
+             "position": s.get("position", 0), "block_count": len(s.get("blocks", []))} for s in sections]
+
+
+@app.get("/api/blueprints/{blueprint_id}/sections/{section_id}")
+async def get_blueprint_section(blueprint_id: str, section_id: str, request: Request):
+    """Get a full section with all blocks."""
+    enforce_rate_limit(request)
+    from auth import get_current_user
+    from db import get_blueprint, get_section, update_section, update_blueprint
+    from block_renderer import render_block, CURRENT_RENDERER_VERSION
+
+    user = await get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or (bp.get("user_id") != user.uid and not bp.get("is_shared")):
+        raise HTTPException(404, "Blueprint not found")
+
+    section = get_section(blueprint_id, section_id)
+    if not section:
+        raise HTTPException(404, "Section not found")
+
+    # Regenerate html_cache if renderer version is newer
+    bp_version = bp.get("renderer_version", 0)
+    if bp_version < CURRENT_RENDERER_VERSION:
+        for block in section.get("blocks", []):
+            block["html_cache"] = render_block(block)
+        update_section(blueprint_id, section_id, {"blocks": section["blocks"]})
+        update_blueprint(blueprint_id, {"renderer_version": CURRENT_RENDERER_VERSION})
+
+    return section
+
+
+@app.put("/api/blueprints/{blueprint_id}/sections/{section_id}")
+async def update_blueprint_section(blueprint_id: str, section_id: str, request: Request):
+    """Update a section's blocks."""
+    enforce_rate_limit(request)
+    from auth import get_current_user
+    from db import get_blueprint, update_section
+    from block_renderer import render_block
+    from block_types import validate_block
+
+    user = await get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+
+    body = await request.json()
+    blocks = body.get("blocks")
+    if blocks is None:
+        raise HTTPException(400, "blocks field required")
+
+    # Validate and re-render
+    for block in blocks:
+        if not validate_block(block):
+            raise HTTPException(400, f"Invalid block: {block.get('id', 'unknown')}")
+        block["html_cache"] = render_block(block)
+
+    update_section(blueprint_id, section_id, {"blocks": blocks})
+    return {"status": "ok"}
+
+
+@app.put("/api/blueprints/{blueprint_id}/section-order")
+async def update_blueprint_section_order(blueprint_id: str, request: Request):
+    """Reorder sections."""
+    enforce_rate_limit(request)
+    from auth import get_current_user
+    from db import get_blueprint, update_section_order, update_section
+
+    user = await get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or bp.get("user_id") != user.uid:
+        raise HTTPException(404, "Blueprint not found")
+
+    body = await request.json()
+    section_order = body.get("section_order")
+    if not isinstance(section_order, list):
+        raise HTTPException(400, "section_order must be a list")
+
+    update_section_order(blueprint_id, section_order)
+    for i, sid in enumerate(section_order):
+        update_section(blueprint_id, sid, {"position": i})
+    return {"status": "ok"}
+
+
+@app.get("/api/blueprints/{blueprint_id}/export/zip")
+async def export_blueprint_zip(blueprint_id: str, request: Request):
+    """Generate a ZIP file from block data on demand."""
+    enforce_rate_limit(request)
+    from auth import get_current_user
+    from db import get_blueprint, list_sections
+    from block_renderer import render_section_to_html
+
+    user = await get_current_user(request)
+    bp = get_blueprint(blueprint_id)
+    if not bp or (bp.get("user_id") != user.uid and not bp.get("is_shared")):
+        raise HTTPException(404, "Blueprint not found")
+    if bp.get("format") != "blocks":
+        raise HTTPException(400, "Use /api/download/{session_id} for legacy blueprints")
+
+    sections = list_sections(blueprint_id)
+    if not sections:
+        raise HTTPException(404, "No sections found")
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for section in sections:
+            html = render_section_to_html(section)
+            # Sanitize filename
+            safe_name = "".join(c for c in section["id"] if c.isalnum() or c in ("_", "-"))
+            zf.writestr(f"{safe_name}.html", html)
+
+    zip_buffer.seek(0)
+    safe_title = "".join(c for c in bp.get("title", "blueprint") if c.isalnum() or c in ("_", "-", " ")).replace(" ", "_")
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{safe_title}_blueprint.zip"'}
+    )
 
 
 if __name__ == "__main__":
