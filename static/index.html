@@ -852,6 +852,36 @@ body {
 .be-swatch-red { background: #EF4444; }
 .be-swatch-purple { background: #8B5CF6; }
 .be-swatch-teal { background: #14B8A6; }
+.skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skeleton-card { height: 120px; margin-bottom: 1rem; }
+.skeleton-block { height: 80px; margin-bottom: 1rem; }
+.resume-banner { background: var(--blue-bg); border: 1px solid var(--accent); border-radius: 8px;
+                 padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; }
+.resume-btn { background: var(--brand); color: white; border: none; padding: 0.4rem 1rem;
+              border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+.resume-btn-secondary { background: none; border: 1px solid var(--border); color: var(--text-light); }
+.offline-banner { padding: 0.5rem 1rem; text-align: center; font-size: 0.85rem; font-weight: 600;
+                  position: fixed; top: 0; left: 0; right: 0; z-index: 9999; }
+.offline-offline { background: #FEF3CD; color: #856404; }
+.offline-reconnecting { background: #FEF3CD; color: #856404; }
+.offline-synced { background: #D4EDDA; color: #155724; }
+.tour-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 9990; }
+.tour-highlight { position: relative; z-index: 9991; box-shadow: 0 0 0 4px var(--brand), 0 0 0 8px rgba(37,99,235,0.2); border-radius: 6px; }
+.tour-tooltip { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+                padding: 1rem 1.25rem; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9992; max-width: 300px; }
+.tour-message { font-size: 0.95rem; margin-bottom: 0.5rem; }
+.tour-counter { font-size: 0.75rem; color: var(--text-light); margin-bottom: 0.75rem; }
+.tour-actions { display: flex; justify-content: space-between; }
+.tour-skip { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 0.8rem; }
+.tour-next { background: var(--brand); color: white; border: none; padding: 0.35rem 1rem; border-radius: 6px;
+             cursor: pointer; font-weight: 600; }
+.undo-toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #333; color: white;
+              padding: 0.75rem 1.25rem; border-radius: 8px; display: flex; align-items: center; gap: 1rem;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 9000; }
+.undo-toast-btn { background: none; border: 1px solid rgba(255,255,255,0.4); color: white; padding: 0.25rem 0.75rem;
+                  border-radius: 4px; cursor: pointer; font-weight: 600; }
 </style>
 <!-- SortableJS (drag-to-reorder blocks) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
@@ -1175,7 +1205,7 @@ function downloadFile(url, filename) {
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
   }).catch(function(e) {
-    showToast('Download failed: ' + e.message, 'error');
+    showToast(friendlyError(e), 'error');
   });
 }
 
@@ -1192,6 +1222,46 @@ function showToast(message, type) {
   setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
 }
 window.showToast = showToast;
+
+function friendlyError(e) {
+  var msg = (e && e.message) ? e.message : String(e);
+  if (msg.indexOf('NetworkError') !== -1 || msg.indexOf('Failed to fetch') !== -1)
+    return 'Connection lost. Your changes are saved locally.';
+  if (msg.indexOf('401') !== -1 || msg.indexOf('sign in') !== -1)
+    return 'Your session expired. Please sign in again.';
+  if (msg.indexOf('429') !== -1)
+    return 'Too many requests. Please wait a moment and try again.';
+  if (msg.indexOf('502') !== -1 || msg.indexOf('503') !== -1)
+    return 'Our AI service is temporarily busy. Try again in a few seconds.';
+  if (msg.indexOf('session') !== -1 && (msg.indexOf('expired') !== -1 || msg.indexOf('not found') !== -1))
+    return "Your session expired. Don't worry \u2014 your saved blueprints are safe in your dashboard.";
+  if (msg.indexOf('404') !== -1)
+    return 'This item was not found. It may have been deleted or moved.';
+  return msg;
+}
+
+function checkSessionResume() {
+  try {
+    var saved = JSON.parse(localStorage.getItem('bp_session'));
+    if (!saved || !saved.sessionId) return;
+    if (Date.now() - saved.timestamp > 7200000) { localStorage.removeItem('bp_session'); return; }
+    var banner = document.createElement('div');
+    banner.className = 'resume-banner'; banner.id = 'resumeBanner';
+    var text = document.createElement('span');
+    text.textContent = 'Continue your blueprint for ' + (saved.companyName || 'your company') + '?';
+    banner.appendChild(text);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.className = 'resume-btn'; resumeBtn.textContent = 'Resume';
+    resumeBtn.onclick = function() { /* resume logic: verify session, restore position */ };
+    banner.appendChild(resumeBtn);
+    var freshBtn = document.createElement('button');
+    freshBtn.className = 'resume-btn resume-btn-secondary'; freshBtn.textContent = 'Start Fresh';
+    freshBtn.onclick = function() { localStorage.removeItem('bp_session'); banner.parentNode.removeChild(banner); };
+    banner.appendChild(freshBtn);
+    var target = document.getElementById('landingScreen');
+    if (target) target.insertBefore(banner, target.firstChild);
+  } catch(e) { localStorage.removeItem('bp_session'); }
+}
 
 /* ══════════════════════════════════════
    MODAL
@@ -1304,6 +1374,7 @@ firebase.auth().onAuthStateChanged(function(user) {
         console.warn('Auth sync failed:', e.message || e);
       });
       showDashboard();
+      checkSessionResume();
     });
   } else {
     currentUser = null;
@@ -1447,7 +1518,12 @@ document.addEventListener('click', function(e) {
 
 function loadDashboardData() {
   var area = document.getElementById('dashBlueprintsArea');
-  area.innerHTML = '<div class="dash-loading"><div class="spinner"></div></div>';
+  while (area.firstChild) area.removeChild(area.firstChild);
+  for (var sk = 0; sk < 3; sk++) {
+    var skel = document.createElement('div');
+    skel.className = 'skeleton skeleton-card';
+    area.appendChild(skel);
+  }
 
   fetchWithAuth('/api/user/blueprints', { headers: authHeaders() })
     .then(function(data) {
@@ -1464,7 +1540,7 @@ function loadDashboardData() {
     })
     .catch(function(e) {
       console.warn('Failed to load dashboard:', e.message || e);
-      showToast('Failed to load blueprints: ' + (e.message || 'Unknown error'), 'error');
+      showToast(friendlyError(e), 'error');
       dashBlueprints = [];
       dashFolders = [];
       renderFolders();
@@ -1562,7 +1638,7 @@ function showNewFolderModal() {
       }).then(function() {
         showToast('Folder created.', 'success');
         loadDashboardData();
-      }).catch(function(e) { showToast('Failed to create folder: ' + (e.message || 'Unknown error'), 'error'); });
+      }).catch(function(e) { showToast(friendlyError(e), 'error'); });
     }
   });
   setTimeout(function() { document.getElementById('newFolderInput').focus(); }, 100);
@@ -1775,7 +1851,7 @@ function renameBlueprintModal(bp) {
         headers: authHeaders(),
         body: JSON.stringify({ title: newName })
       }).then(function() { showToast('Renamed.', 'success'); loadDashboardData(); })
-        .catch(function(e) { showToast('Failed to rename: ' + (e.message || 'Unknown error'), 'error'); });
+        .catch(function(e) { showToast(friendlyError(e), 'error'); });
     }
   });
   setTimeout(function() { var el = document.getElementById('renameBpInput'); if (el) { el.focus(); el.select(); } }, 100);
@@ -1810,7 +1886,7 @@ function moveBlueprintModal(bp) {
         headers: authHeaders(),
         body: JSON.stringify({ folder_id: folderId })
       }).then(function() { showToast('Moved.', 'success'); loadDashboardData(); })
-        .catch(function(e) { showToast('Failed to move: ' + (e.message || 'Unknown error'), 'error'); });
+        .catch(function(e) { showToast(friendlyError(e), 'error'); });
     }
   });
 }
@@ -1828,7 +1904,7 @@ function toggleShare(bp) {
       showShareLinkModal(url);
     }
     loadDashboardData();
-  }).catch(function(e) { showToast('Failed to update sharing: ' + (e.message || 'Unknown error'), 'error'); });
+  }).catch(function(e) { showToast(friendlyError(e), 'error'); });
 }
 
 function showShareLinkModal(url) {
@@ -1864,7 +1940,7 @@ function deleteBlueprintModal(bp) {
         method: 'DELETE',
         headers: authHeaders()
       }).then(function() { showToast('Deleted.', 'success'); loadDashboardData(); })
-        .catch(function(e) { showToast('Failed to delete: ' + (e.message || 'Unknown error'), 'error'); });
+        .catch(function(e) { showToast(friendlyError(e), 'error'); });
     }
   });
 }
@@ -2055,7 +2131,7 @@ window.goBack = function() {
   })
   .catch(function(e) {
     if (btn) btn.disabled = false;
-    showToast(e.message, 'error');
+    showToast(friendlyError(e), 'error');
   });
 };
 
@@ -2222,7 +2298,7 @@ window.startSession = function() {
     if (startBtn) { startBtn.disabled = false; startBtn.style.opacity = ''; }
     document.getElementById('stageCounter').classList.add('hidden');
     showLanding();
-    showToast('Error: ' + e.message, 'error');
+    showToast(friendlyError(e), 'error');
   });
 };
 
@@ -2248,6 +2324,15 @@ window.sendAnswer = function() {
     btnText.textContent = 'Continue';
     if (spinner.parentNode) spinner.parentNode.removeChild(spinner);
 
+    try {
+      localStorage.setItem('bp_session', JSON.stringify({
+        sessionId: sessionId, currentStep: currentStep,
+        businessDescription: document.getElementById('bizDesc') ? document.getElementById('bizDesc').value : '',
+        companyName: data.profile_summary ? data.profile_summary.split(' \u2014 ')[0] : '',
+        timestamp: Date.now()
+      }));
+    } catch(ignore) {}
+
     if (data.done) {
       updateStageBar(4);
       showProfile(data);
@@ -2271,7 +2356,7 @@ window.sendAnswer = function() {
     btn.disabled = false;
     btnText.textContent = 'Continue';
     if (spinner.parentNode) spinner.parentNode.removeChild(spinner);
-    showToast(e.message, 'error');
+    showToast(friendlyError(e), 'error');
     if (e.message.indexOf('session has expired') !== -1 || e.message.indexOf('sign in') !== -1) {
       sessionId = null;
       showLanding();
@@ -2579,7 +2664,7 @@ window.EditorScreen = {
         EditorScreen.loadSection(sections[0].id);
       }
     })
-    .catch(function(e) { showToast('Failed to load sections: ' + e.message, 'error'); });
+    .catch(function(e) { showToast(friendlyError(e), 'error'); });
   },
 
   renderSidebar: function() {
@@ -2607,12 +2692,23 @@ window.EditorScreen = {
     editorCurrentSection = sectionId;
     this.renderSidebar();
 
+    var blocksContainer = document.getElementById('editorBlocks');
+    if (blocksContainer) {
+      while (blocksContainer.firstChild) blocksContainer.removeChild(blocksContainer.firstChild);
+      for (var sk = 0; sk < 3; sk++) {
+        var skel = document.createElement('div');
+        skel.className = 'skeleton skeleton-block';
+        blocksContainer.appendChild(skel);
+      }
+    }
+
     fetchWithAuth('/api/blueprints/' + editorBlueprintId + '/sections/' + sectionId, {headers: authHeaders()})
     .then(function(section) {
       EditorScreen.renderBlocks(section);
       ChatPanel.init(editorBlueprintId, sectionId);
+      if (window.EditorTour) EditorTour.start();
     })
-    .catch(function(e) { showToast('Failed to load section: ' + e.message, 'error'); });
+    .catch(function(e) { showToast(friendlyError(e), 'error'); });
   },
 
   reloadSection: function(sectionId) {
@@ -2650,5 +2746,7 @@ window.EditorScreen = {
 <script src="/static/editor/style-panel.js"></script>
 <script src="/static/editor/undo.js"></script>
 <script src="/static/editor/chat-panel.js"></script>
+<script src="/static/editor/offline.js"></script>
+<script src="/static/editor/tooltips.js"></script>
 </body>
 </html>
