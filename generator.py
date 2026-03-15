@@ -11,7 +11,7 @@ import json
 import asyncio
 import httpx
 
-from config import OPENROUTER_API_KEY, PLANNER_MODEL, RENDERER_MODEL
+from config import OPENROUTER_API_KEY, PLANNER_MODEL, OUTLINE_MODEL, RENDERER_MODEL
 from renderer import render_master_blueprint, render_department_blueprint, render_glossary
 
 
@@ -239,8 +239,8 @@ CRITICAL RULES:
 - roles: Use ALL departments from the user's answers. Include a "client" role. Use snake_case for role IDs.
 - Output ONLY JSON. No markdown."""
 
-    print("    Master: generating structure...")
-    structure_result = await call_llm(PLANNER_SYSTEM, structure_prompt, PLANNER_MODEL, max_tokens=4000)
+    print("    Master: generating structure (OUTLINE_MODEL)...")
+    structure_result = await call_llm(PLANNER_SYSTEM, structure_prompt, OUTLINE_MODEL, max_tokens=4000)
     structure = extract_json(structure_result)
 
     stages = structure.get("stages", [])
@@ -274,16 +274,39 @@ Output JSON:
 }}
 
 RULES:
-- Generate key "roleId-stageId" for EVERY role × stage combination. That's {len(batch_roles)} × {len(stages)} = {len(batch_roles)*len(stages)} cells.
+- Use EXACTLY these role IDs for matrix keys: {', '.join(r['id'] for r in batch_roles)}
+- Use EXACTLY these stage IDs: {', '.join(str(s['id']) for s in stages)}
+- Key format: "roleId-stageId" — e.g., "{batch_roles[0]['id']}-{stages[0]['id']}"
+- Generate EVERY combination. That's {len(batch_roles)} × {len(stages)} = {len(batch_roles)*len(stages)} cells.
 - Each cell: exactly 2 items.
 - Do NOT skip any cell. Do NOT abbreviate with "..."
 - Output ONLY JSON. No markdown."""
 
         print(f"    Matrix batch {i//batch_size+1}: {role_names}")
-        batch_result = await call_llm(PLANNER_SYSTEM, matrix_prompt, RENDERER_MODEL, max_tokens=32000)
+        batch_result = await call_llm(PLANNER_SYSTEM, matrix_prompt, OUTLINE_MODEL, max_tokens=32000)
         try:
             batch_data = extract_json(batch_result)
             batch_matrix = batch_data.get("matrix", {})
+
+            # Remap keys if LLM used wrong role IDs
+            expected_role_ids = {r["id"] for r in batch_roles}
+            actual_role_ids = {k.rsplit("-", 1)[0] for k in batch_matrix.keys() if "-" in k}
+            if actual_role_ids and not actual_role_ids.intersection(expected_role_ids):
+                # LLM used different IDs — try to remap by order
+                actual_sorted = sorted(actual_role_ids)
+                expected_sorted = [r["id"] for r in batch_roles]
+                if len(actual_sorted) == len(expected_sorted):
+                    id_map = dict(zip(actual_sorted, expected_sorted))
+                    remapped = {}
+                    for k, v in batch_matrix.items():
+                        parts = k.rsplit("-", 1)
+                        if len(parts) == 2 and parts[0] in id_map:
+                            remapped[f"{id_map[parts[0]]}-{parts[1]}"] = v
+                        else:
+                            remapped[k] = v
+                    batch_matrix = remapped
+                    print(f"      Remapped {len(id_map)} role IDs to match structure")
+
             matrix.update(batch_matrix)
             print(f"      Got {len(batch_matrix)} cells")
         except (json.JSONDecodeError, Exception) as e:
