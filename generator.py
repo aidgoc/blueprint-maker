@@ -15,10 +15,10 @@ from config import OPENROUTER_API_KEY, PLANNER_MODEL, RENDERER_MODEL
 from renderer import render_master_blueprint, render_department_blueprint, render_glossary
 
 
-async def call_llm(system: str, prompt: str, model: str, max_tokens: int = 8000) -> str:
+async def call_llm(system: str, prompt: str, model: str, max_tokens: int = 8000, _retry_count: int = 0) -> str:
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY is not set")
-    async with httpx.AsyncClient(timeout=300) as client:
+    async with httpx.AsyncClient(timeout=600) as client:
         resp = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
@@ -39,9 +39,21 @@ async def call_llm(system: str, prompt: str, model: str, max_tokens: int = 8000)
         choices = data.get("choices")
         if not choices or not isinstance(choices, list):
             raise RuntimeError("LLM returned no choices")
+        finish_reason = choices[0].get("finish_reason", "")
         content = choices[0].get("message", {}).get("content", "")
         if not content:
             raise RuntimeError("LLM returned empty content")
+
+        # If the response was truncated due to max_tokens, retry with double the limit
+        if finish_reason == "length":
+            print(f"    WARNING: LLM output truncated at {max_tokens} tokens (finish_reason=length)")
+            if _retry_count < 2 and max_tokens < 65000:
+                new_limit = min(max_tokens * 2, 65000)
+                print(f"    Retrying with max_tokens={new_limit}...")
+                return await call_llm(system, prompt, model, max_tokens=new_limit, _retry_count=_retry_count + 1)
+            else:
+                print(f"    Max retries reached — using truncated output ({len(content)} chars)")
+
         return content
 
 
@@ -77,6 +89,39 @@ def extract_json(text: str) -> dict:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
+
+    # If text doesn't start with { or [, try to find JSON within prose text
+    if text and text[0] not in '{[':
+        first_brace = text.find('{')
+        first_bracket = text.find('[')
+        start = -1
+        if first_brace != -1 and first_bracket != -1:
+            start = min(first_brace, first_bracket)
+        elif first_brace != -1:
+            start = first_brace
+        elif first_bracket != -1:
+            start = first_bracket
+        if start > 0:
+            text = text[start:]
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+
+    # Fix common LLM output typos in JSON
+    cleaned = text
+    # Fix "key":= "value" or "key":- "value" or "key":> "value" typos
+    # (LLM sometimes inserts stray characters between colon and value)
+    cleaned = re.sub(r'":\s*[=\-~>]+\s*', '": ', cleaned)
+    # Remove LLM abbreviation artifacts ("..." used to skip content)
+    cleaned = re.sub(r':\s*\.\.\.', ': null', cleaned)
+    cleaned = re.sub(r',\s*\.\.\.[\s,]*', '', cleaned)
+    cleaned = re.sub(r'\.\.\.\s*$', '', cleaned)
+    if cleaned != text:
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            text = cleaned  # Use cleaned version for further repair
 
     # Repair strategy
     repaired = text
@@ -207,11 +252,12 @@ Using ALL the above context and research, generate a master service blueprint JS
 IMPORTANT:
 - Use the ACTUAL stages and departments from the user's answers (refined as needed)
 - Matrix keys: "roleId-stageId". Generate for EVERY role × stage.
-- Each cell: 3-6 items. Use real document names, real standards, real terminology.
+- Each cell: 2-3 items MAXIMUM. Keep text SHORT (under 15 words). Keep detail to ONE sentence.
 - Include a "client" role for the customer's perspective.
-- Output ONLY the JSON."""
+- Do NOT abbreviate with "..." — generate EVERY cell completely even if repetitive.
+- Output ONLY the JSON. Complete the ENTIRE matrix."""
 
-    result = await call_llm(PLANNER_SYSTEM, prompt, PLANNER_MODEL, max_tokens=16000)
+    result = await call_llm(PLANNER_SYSTEM, prompt, PLANNER_MODEL, max_tokens=40000)
     return extract_json(result)
 
 
@@ -245,13 +291,11 @@ QUALITY STANDARD:
 Output ONLY valid JSON. No markdown. No explanation."""
 
 
-async def generate_department(dept_name: str, dept_id: str, context: str, research: dict) -> dict:
-    """Generate one department blueprint using TWO LLM calls for maximum depth."""
-
+def _build_research_context(dept_name: str, research: dict) -> str:
+    """Build filtered research context for a department."""
     r2 = research.get("stage2", {})
     r1 = research.get("stage1", {})
 
-    # Filter research to this department (broader matching)
     dept_lower = dept_name.lower()
     dept_words = set(dept_lower.replace("&", " ").replace("/", " ").split())
 
@@ -263,7 +307,6 @@ async def generate_department(dept_name: str, dept_id: str, context: str, resear
     dept_docs = [d for d in r2.get("document_templates", []) if matches_dept(d.get("department", ""))]
     dept_compliance = [c for c in r2.get("compliance_requirements", []) if matches_dept(c.get("applies_to", ""))]
 
-    # If no department-specific items, include all
     if not dept_kpis:
         dept_kpis = r2.get("industry_kpis", [])
     if not dept_docs:
@@ -271,54 +314,70 @@ async def generate_department(dept_name: str, dept_id: str, context: str, resear
     if not dept_compliance:
         dept_compliance = r2.get("compliance_requirements", [])
 
-    # Include Stage 1 research for industry context
-    industry_context = ""
+    # Keep research context concise — only what's needed
+    industry_brief = ""
     if r1:
-        industry_context = f"""INDUSTRY CONTEXT:
-Overview: {r1.get('industry_overview', '')}
-Common Documents: {json.dumps(r1.get('common_documents', []))}
-Key Roles: {json.dumps(r1.get('key_roles', []))}
-Pain Points: {json.dumps(r1.get('typical_pain_points', []))}
-Terminology: {json.dumps(r1.get('industry_terminology', [])[:8])}"""
+        industry_brief = f"INDUSTRY: {r1.get('industry_overview', '')[:300]}"
 
-    research_context = f"""{industry_context}
+    return f"""{industry_brief}
 
-COMPLIANCE & REGULATORY DATA:
-{json.dumps(dept_compliance, indent=1)}
+COMPLIANCE: {json.dumps(dept_compliance, separators=(',',':'))}
+KPIs: {json.dumps(dept_kpis, separators=(',',':'))}
+DOCUMENTS: {json.dumps(dept_docs, separators=(',',':'))}
+SAFETY: {json.dumps(r2.get('safety_standards', []), separators=(',',':'))}"""
 
-KPI BENCHMARKS:
-{json.dumps(dept_kpis, indent=1)}
 
-DOCUMENT TEMPLATES:
-{json.dumps(dept_docs, indent=1)}
+DEPT_SYSTEM_FOCUSED = """You are a world-class business operations architect generating COMPREHENSIVE, IMPLEMENTATION-READY department blueprints.
 
-ESCALATION PATTERNS:
-{json.dumps(r2.get('escalation_patterns', []), indent=1)}
+You have REAL RESEARCH data. USE IT. Every item must be specific, actionable, and grounded in actual industry practice.
 
-WORKFLOW PATTERNS:
-{json.dumps(r2.get('workflow_patterns', []), indent=1)}
+QUALITY STANDARD — each item must have:
+- Specific names (not "Document A" but "Pre-Delivery Inspection Checklist")
+- Detailed descriptions (2-3 sentences minimum)
+- Real field lists, numeric targets, named roles, time durations
 
-SAFETY STANDARDS:
-{json.dumps(r2.get('safety_standards', []), indent=1)}"""
+CRITICAL: You MUST complete the ENTIRE JSON. Do NOT abbreviate with "..." or skip items.
+Output ONLY valid JSON. No markdown fences. No explanation."""
 
-    # ── CALL 1: Overview + Timeline + Workflows ──
-    prompt_part1 = f"""{context}
 
-{research_context}
+async def generate_department(dept_name: str, dept_id: str, context: str, research: dict) -> dict:
+    """Generate one department blueprint using FOUR focused LLM calls to prevent truncation."""
 
-Generate PART 1 of a comprehensive blueprint for the "{dept_name}" department.
+    research_ctx = _build_research_context(dept_name, research)
 
-This is for a REAL business — make every item specific, actionable, and grounded in industry practice.
+    # ── CALL A: Overview + Team Structure (small, fast) ──
+    prompt_a = f"""{context}
 
-PART 1 JSON (overview + timeline + workflows):
+{research_ctx}
+
+Generate the OVERVIEW section for the "{dept_name}" department.
+
+JSON:
 {{
   "department": "{dept_name}",
   "department_id": "{dept_id}",
-  "mission": "Comprehensive one-line mission statement",
-  "head_role": "Title",
+  "mission": "One-line mission statement specific to this department",
+  "head_role": "Department Head Title",
   "team_structure": [
-    {{"role": "Title", "count": "1-2", "reports_to": "...", "key_responsibilities": "3-4 bullet points of what this person does"}}
-  ],
+    {{"role": "Title", "count": "1-2", "reports_to": "...", "key_responsibilities": "3-4 specific bullet points"}}
+  ]
+}}
+
+REQUIREMENTS:
+- team_structure: 4-8 roles with realistic counts and reporting lines
+- key_responsibilities: 3-4 specific responsibilities per role, referencing real tools/documents
+
+Output ONLY JSON. No markdown."""
+
+    # ── CALL B: Daily Timeline (focused, detailed) ──
+    prompt_b = f"""{context}
+
+{research_ctx}
+
+Generate the DAILY TIMELINE for the "{dept_name}" department. This is a minute-by-minute guide of what happens each day.
+
+JSON:
+{{
   "daily_timeline": [
     {{
       "time": "7:00 AM",
@@ -326,13 +385,32 @@ PART 1 JSON (overview + timeline + workflows):
       "activities": [
         {{
           "title": "Specific Activity Name",
-          "description": "DETAILED description — what exactly happens, what systems are used, what the person physically does, what they check, what they produce. Minimum 2-3 sentences. Include specific tools, forms, systems, and SLAs.",
+          "description": "DETAILED: what exactly happens, what systems/tools are used, what the person physically does, what they check, what output they produce. 2-3 sentences. Include specific document names, tool names, SLAs.",
           "tags": ["doc", "system", "critical", "approval", "handover"],
           "icon": "emoji"
         }}
       ]
     }}
-  ],
+  ]
+}}
+
+REQUIREMENTS:
+- 6-8 time blocks covering full day (7 AM to 6 PM)
+- Each block: 3-4 DETAILED activities
+- EVERY description: 2-3 sentences with specific tool/document/system names
+- Complete the ENTIRE day. Do NOT stop early or abbreviate.
+
+Output ONLY JSON. No markdown."""
+
+    # ── CALL C: Workflows (focused, detailed) ──
+    prompt_c = f"""{context}
+
+{research_ctx}
+
+Generate the PROCESS WORKFLOWS for the "{dept_name}" department.
+
+JSON:
+{{
   "workflows": [
     {{
       "title": "Specific Workflow Name (e.g., 'Enquiry to Quotation — E2Q')",
@@ -340,126 +418,293 @@ PART 1 JSON (overview + timeline + workflows):
       "steps": [
         {{
           "title": "Step Name",
-          "description": "DETAILED description — what happens, who does it, what tools/forms are used, decision criteria, output produced. 2-3 sentences minimum.",
+          "description": "DETAILED: what happens, who does it, tools/forms used, decision criteria, output. 2-3 sentences.",
           "role": "Specific role title",
           "color": "blue|green|orange|red|purple|teal",
-          "time": "Duration (e.g., 30 min, 2 hours, 1 day)",
-          "documents": "Any documents created/used at this step",
-          "decision_criteria": "If this is a decision point, what are the criteria?"
+          "time": "Duration",
+          "documents": "Documents created/used",
+          "decision_criteria": "Criteria if decision point"
         }}
       ]
     }}
   ]
 }}
 
-QUANTITY REQUIREMENTS:
-- team_structure: List EVERY role in the department (4-8 roles), with realistic counts and reporting lines
-- daily_timeline: 7-8 time blocks covering full day (7 AM to 6 PM), each block with 4-6 DETAILED activities
-- workflows: 4-6 major workflows, each with 7-10 detailed steps
+REQUIREMENTS:
+- 4-5 major workflows
+- Each workflow: 6-8 detailed steps
+- Every step description: 2-3 sentences with specific details
+- Complete ALL workflows fully. Do NOT abbreviate.
 
-EVERY activity description must be 2-3 sentences minimum. Include specific tool names, document names, SLA times, and decision criteria.
+Output ONLY JSON. No markdown."""
 
-Output ONLY the JSON."""
+    # ── CALL D: Documents + KPIs + Interactions + Escalation + Compliance ──
+    prompt_d = f"""{context}
 
-    # ── CALL 2: Documents + KPIs + Interactions + Escalation + Compliance ──
-    prompt_part2 = f"""{context}
+{research_ctx}
 
-{research_context}
+Generate DOCUMENTS, KPIs, INTERACTIONS, ESCALATION MATRIX, and COMPLIANCE for the "{dept_name}" department.
 
-Generate PART 2 of a comprehensive blueprint for the "{dept_name}" department.
-
-This is for a REAL business — make every item specific, actionable, and grounded in REAL industry standards.
-
-PART 2 JSON (documents + KPIs + interactions + escalation + compliance):
+JSON:
 {{
   "documents": [
     {{
-      "name": "Specific Document Name",
-      "description": "Detailed purpose — why this document exists, what business process it supports, what decisions it enables. 2 sentences.",
-      "fields": "field1, field2, field3, field4, field5, field6, field7, field8, field9, field10 — list 10-15 SPECIFIC fields",
-      "frequency": "When created (Per Job / Daily / Weekly / Monthly / Per Event)",
-      "flow": "Created by Role > Reviewed by Role > Approved by Role > Filed in System",
-      "retention": "How long to keep (e.g., 7 years for tax, 5 years for safety)",
+      "name": "Document Name",
+      "description": "Purpose — 2 sentences.",
+      "fields": "field1, field2, field3... (10-15 specific fields)",
+      "frequency": "Per Job / Daily / Weekly / Monthly",
+      "flow": "Created by > Reviewed by > Approved by > Filed in",
+      "retention": "Duration",
       "format": "Paper / Digital / Both"
     }}
   ],
   "kpis": [
     {{
-      "name": "Specific KPI Name",
-      "target": "Specific numeric target (e.g., 95%, <24 hrs, ₹12 Cr)",
+      "name": "KPI Name",
+      "target": "Numeric target",
       "unit": "%|hours|days|count|currency",
-      "description": "What this KPI measures and WHY it matters. Include industry benchmark if available.",
-      "measurement": "How to measure — data source, calculation formula, frequency",
-      "accountable": "Who is responsible for hitting this target",
+      "description": "What it measures and WHY. Include benchmark.",
+      "measurement": "Data source, formula, frequency",
+      "accountable": "Responsible role",
       "color": "green|blue|orange|red|purple"
     }}
   ],
   "interactions": [
     {{
+      "department": "Other Dept",
+      "inbound": ["Specific flow with details and timing"],
+      "outbound": ["Specific flow with details and timing"]
+    }}
+  ],
+  "escalation_matrix": [
+    {{
+      "level": 1,
+      "title": "Level Name",
+      "trigger": "Specific trigger",
+      "description": "What happens at this level",
+      "response_time": "SLA",
+      "resolution_time": "Target",
+      "authority": "Role",
+      "actions": ["Action 1", "Action 2", "Action 3"],
+      "examples": ["Example 1", "Example 2", "Example 3"]
+    }}
+  ],
+  "compliance_items": [
+    {{
+      "name": "Regulation Name with clause",
+      "description": "Requirements — 2-3 sentences.",
+      "frequency": "Audit frequency",
+      "responsible": "Role",
+      "documentation": "Required records"
+    }}
+  ]
+}}
+
+QUANTITIES:
+- documents: 10-15 with 10-15 fields each
+- kpis: 8-10 with specific targets
+- interactions: 4-6 departments with 2-3 inbound AND 2-3 outbound flows each
+- escalation_matrix: 4 levels with 3 examples each
+- compliance_items: 5-7 with clause references
+
+Output ONLY JSON. No markdown."""
+
+    # ── CALL E: Documents + KPIs (split from old Part D for depth) ──
+    prompt_e = f"""{context}
+
+{research_ctx}
+
+Generate DOCUMENTS and KPIs for the "{dept_name}" department.
+
+JSON:
+{{
+  "documents": [
+    {{
+      "name": "Document Name",
+      "description": "Purpose — why this document exists and what decisions it enables. 2 sentences.",
+      "fields": "field1, field2, field3, field4, field5, field6, field7, field8, field9, field10 — list 10-15 SPECIFIC fields",
+      "frequency": "Per Job / Daily / Weekly / Monthly",
+      "flow": "Created by Role > Reviewed by Role > Approved by Role > Filed in System",
+      "retention": "Duration (e.g., 7 years for tax)",
+      "format": "Paper / Digital / Both"
+    }}
+  ],
+  "kpis": [
+    {{
+      "name": "KPI Name",
+      "target": "Specific numeric target (e.g., 95%, <24 hrs, ₹12 Cr)",
+      "unit": "%|hours|days|count|currency",
+      "description": "What it measures and WHY it matters. Include industry benchmark.",
+      "measurement": "Data source, calculation formula, frequency",
+      "accountable": "Responsible role",
+      "color": "green|blue|orange|red|purple"
+    }}
+  ]
+}}
+
+QUANTITIES:
+- documents: 12-15 with 10-15 fields each. Include ALL forms, reports, logs, checklists this dept uses.
+- kpis: 8-10 with specific numeric targets. Use research benchmarks where available.
+
+Output ONLY JSON. No markdown."""
+
+    # ── CALL F: Interactions + Escalation + Compliance ──
+    prompt_f = f"""{context}
+
+{research_ctx}
+
+Generate DEPARTMENT INTERACTIONS, ESCALATION MATRIX, and COMPLIANCE for the "{dept_name}" department.
+
+JSON:
+{{
+  "interactions": [
+    {{
       "department": "Other Department Name",
       "inbound": [
-        "SPECIFIC flow: 'Receives daily stock reorder alerts from Parts Warehouse by 9 AM with item codes, current stock levels, and reorder quantities'"
+        "SPECIFIC: 'Receives [what] from [who] by [when] with [details]'"
       ],
       "outbound": [
-        "SPECIFIC flow: 'Sends approved purchase orders to Finance for payment processing within 24 hours of vendor confirmation, attaching quotation comparison sheet'"
+        "SPECIFIC: 'Sends [what] to [who] within [SLA] attaching [documents]'"
       ]
     }}
   ],
   "escalation_matrix": [
     {{
       "level": 1,
-      "title": "Specific Level Name (e.g., 'Frontline Resolution')",
-      "trigger": "Specific trigger criteria (e.g., 'Service request not acknowledged within 2 hours')",
-      "description": "Detailed description of what happens at this level — who is notified, what actions are taken, what systems are used, what documentation is created.",
-      "response_time": "Specific SLA (e.g., 30 minutes)",
+      "title": "Level Name (e.g., 'Frontline Resolution')",
+      "trigger": "Specific trigger (e.g., 'Issue not resolved within 2 hours')",
+      "description": "What happens — who is notified, what actions taken, what systems used.",
+      "response_time": "SLA (e.g., 30 minutes)",
       "resolution_time": "Target resolution time",
-      "authority": "Specific role title",
+      "authority": "Role title",
       "actions": ["Specific action 1", "Specific action 2", "Specific action 3"],
-      "examples": ["Detailed real-world example 1", "Detailed real-world example 2", "Detailed real-world example 3"]
+      "examples": ["Real-world example 1", "Real-world example 2", "Real-world example 3"]
     }}
   ],
   "compliance_items": [
     {{
-      "name": "Specific Regulation/Standard Name (e.g., 'IS 4573:2019 — Powered Industrial Trucks')",
-      "description": "What this regulation requires, specific clauses that apply to this department, what documentation must be maintained, consequences of non-compliance. 2-3 sentences.",
+      "name": "Regulation/Standard Name with clause (e.g., 'IS 800:2007 — General Construction in Steel')",
+      "description": "What it requires, specific clauses, documentation needed, consequences of non-compliance. 2-3 sentences.",
       "frequency": "Audit/review frequency",
-      "responsible": "Who ensures compliance",
+      "responsible": "Role who ensures compliance",
       "documentation": "What records must be maintained"
     }}
   ]
 }}
 
-QUANTITY REQUIREMENTS:
-- documents: 12-18 documents with 10-15 fields each
-- kpis: 8-12 KPIs with specific numeric targets (use research benchmarks)
-- interactions: 5-7 departments, each with 3-5 specific inbound AND 3-5 specific outbound flows
-- escalation_matrix: 4 levels with detailed triggers, actions, and 3+ examples each
-- compliance_items: 5-8 specific regulations/standards with clause references
+QUANTITIES:
+- interactions: 5-7 departments, each with 3-4 specific inbound AND 3-4 specific outbound flows
+- escalation_matrix: 4 levels with specific triggers, 3 actions, and 3 examples each
+- compliance_items: 5-8 specific regulations/standards with real clause references
 
-USE the research data for real regulation names, real KPI benchmarks, and real document standards. Do not use generic placeholders.
+Output ONLY JSON. No markdown."""
 
-Output ONLY the JSON."""
-
-    # Run both calls in parallel
-    result1, result2 = await asyncio.gather(
-        call_llm(DEPT_SYSTEM_PART1, prompt_part1, RENDERER_MODEL, max_tokens=16000),
-        call_llm(DEPT_SYSTEM_PART2, prompt_part2, RENDERER_MODEL, max_tokens=16000),
+    # Run all 5 calls in parallel — each is small and focused
+    results = await asyncio.gather(
+        call_llm(DEPT_SYSTEM_FOCUSED, prompt_a, RENDERER_MODEL, max_tokens=8000),
+        call_llm(DEPT_SYSTEM_FOCUSED, prompt_b, RENDERER_MODEL, max_tokens=16000),
+        call_llm(DEPT_SYSTEM_FOCUSED, prompt_c, RENDERER_MODEL, max_tokens=16000),
+        call_llm(DEPT_SYSTEM_FOCUSED, prompt_e, RENDERER_MODEL, max_tokens=16000),
+        call_llm(DEPT_SYSTEM_FOCUSED, prompt_f, RENDERER_MODEL, max_tokens=16000),
     )
 
-    try:
-        part1 = extract_json(result1)
-    except (json.JSONDecodeError, Exception) as e:
-        print(f"    WARNING: Failed to parse Part 1 JSON for {dept_name}: {e}")
-        part1 = {"department": dept_name, "department_id": dept_id, "mission": "", "team_structure": [], "daily_timeline": [], "workflows": []}
+    labels = ["A-overview", "B-timeline", "C-workflows", "D-docs/kpis", "E-interactions/esc/compliance"]
+    defaults_list = [
+        {"department": dept_name, "department_id": dept_id, "mission": "", "team_structure": []},
+        {"daily_timeline": []},
+        {"workflows": []},
+        {"documents": [], "kpis": []},
+        {"interactions": [], "escalation_matrix": [], "compliance_items": []},
+    ]
 
-    try:
-        part2 = extract_json(result2)
-    except (json.JSONDecodeError, Exception) as e:
-        print(f"    WARNING: Failed to parse Part 2 JSON for {dept_name}: {e}")
-        part2 = {"documents": [], "kpis": [], "interactions": [], "escalation_matrix": [], "compliance_items": []}
+    # Parse each part independently
+    merged = {}
+    parsed_parts = {}
+    for label, result, default in zip(labels, results, defaults_list):
+        try:
+            parsed = extract_json(result)
+            merged.update(parsed)
+            parsed_parts[label] = parsed
+            print(f"      {label}: OK ({len(result)} chars)")
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"      {label}: PARSE FAILED ({e}) — using empty defaults")
+            merged.update(default)
+            parsed_parts[label] = default
 
-    # Merge
-    merged = {**part1, **part2}
+    # ── Quality validation + retry for thin results ──
+    thin_retries = []
+
+    # Check team structure
+    if len(merged.get("team_structure", [])) < 3:
+        thin_retries.append(("A-overview", prompt_a, 8000, defaults_list[0],
+                             "team_structure", 3, "team roles"))
+
+    # Check timeline
+    total_acts = sum(len(b.get("activities", [])) for b in merged.get("daily_timeline", []))
+    if len(merged.get("daily_timeline", [])) < 4 or total_acts < 10:
+        thin_retries.append(("B-timeline", prompt_b, 16000, defaults_list[1],
+                             "daily_timeline", 4, "timeline blocks"))
+
+    # Check workflows
+    total_wf_steps = sum(len(w.get("steps", [])) for w in merged.get("workflows", []))
+    if len(merged.get("workflows", [])) < 3 or total_wf_steps < 12:
+        thin_retries.append(("C-workflows", prompt_c, 16000, defaults_list[2],
+                             "workflows", 3, "workflows"))
+
+    # Check documents
+    if len(merged.get("documents", [])) < 8:
+        thin_retries.append(("D-docs/kpis", prompt_e, 16000, defaults_list[3],
+                             "documents", 8, "documents"))
+
+    # Check KPIs
+    if len(merged.get("kpis", [])) < 6:
+        thin_retries.append(("D-docs/kpis(kpi)", prompt_e, 16000, defaults_list[3],
+                             "kpis", 6, "KPIs"))
+
+    # Check interactions
+    if len(merged.get("interactions", [])) < 3:
+        thin_retries.append(("E-interactions", prompt_f, 16000, defaults_list[4],
+                             "interactions", 3, "interactions"))
+
+    # Check escalation
+    if len(merged.get("escalation_matrix", [])) < 3:
+        thin_retries.append(("E-escalation", prompt_f, 16000, defaults_list[4],
+                             "escalation_matrix", 3, "escalation levels"))
+
+    # Check compliance
+    if len(merged.get("compliance_items", [])) < 3:
+        thin_retries.append(("E-compliance", prompt_f, 16000, defaults_list[4],
+                             "compliance_items", 3, "compliance items"))
+
+    # Deduplicate retries by prompt (same prompt covers multiple thin sections)
+    if thin_retries:
+        seen_prompts = set()
+        unique_retries = []
+        for label, prompt, tokens, default, key, min_count, desc in thin_retries:
+            prompt_id = id(prompt)
+            if prompt_id not in seen_prompts:
+                seen_prompts.add(prompt_id)
+                unique_retries.append((label, prompt, tokens, default, key, min_count, desc))
+            else:
+                # Still log the thin section
+                print(f"      THIN: {desc} ({len(merged.get(key, []))}/{min_count}) — covered by pending retry")
+
+        for label, prompt, tokens, default, key, min_count, desc in unique_retries:
+            current = len(merged.get(key, []))
+            print(f"      THIN: {desc} ({current}/{min_count}) — retrying {label}...")
+            try:
+                retry_result = await call_llm(DEPT_SYSTEM_FOCUSED, prompt, RENDERER_MODEL, max_tokens=tokens)
+                retry_parsed = extract_json(retry_result)
+                # Only update if retry produced more content
+                for rkey, rval in retry_parsed.items():
+                    if isinstance(rval, list) and len(rval) > len(merged.get(rkey, [])):
+                        merged[rkey] = rval
+                        print(f"      RETRY {label}: {rkey} improved ({len(rval)} items)")
+                    elif isinstance(rval, list):
+                        print(f"      RETRY {label}: {rkey} no improvement ({len(rval)} vs {len(merged.get(rkey, []))})")
+            except Exception as e:
+                print(f"      RETRY {label}: FAILED ({e})")
+
     return merged
 
 
@@ -559,8 +804,8 @@ QUANTITIES: risk_register 12-15, meeting_cadences 8-10, seasonal_patterns 4-6, v
 Output ONLY JSON."""
 
     result1, result2 = await asyncio.gather(
-        call_llm(GLOSSARY_SYSTEM, prompt1, PLANNER_MODEL, max_tokens=16000),
-        call_llm(GLOSSARY_SYSTEM, prompt2, RENDERER_MODEL, max_tokens=16000),
+        call_llm(GLOSSARY_SYSTEM, prompt1, PLANNER_MODEL, max_tokens=24000),
+        call_llm(GLOSSARY_SYSTEM, prompt2, RENDERER_MODEL, max_tokens=24000),
     )
 
     try:
@@ -629,14 +874,29 @@ async def generate_blueprint_kit(context: str, research: dict, progress_cb=None)
         for role, result in zip(batch, results):
             if isinstance(result, Exception):
                 print(f"    ERROR {role['name']}: {result}")
-                done_depts += 1
-                continue
+                # Retry failed department once
+                print(f"    RETRYING {role['name']}...")
+                try:
+                    result = await generate_department(role["name"], role["id"], context, research)
+                except Exception as retry_err:
+                    print(f"    RETRY FAILED {role['name']}: {retry_err}")
+                    done_depts += 1
+                    continue
             try:
                 html = render_department_blueprint(result, master.get("company_name", ""))
                 files.append({"name": f"{role['id']}-blueprint.html", "content": html})
                 raw_departments.append(result)
             except Exception as e:
                 print(f"    RENDER ERROR {role['name']}: {e}")
+                # Retry on render error too (data might have been malformed)
+                print(f"    RETRYING {role['name']} after render error...")
+                try:
+                    result = await generate_department(role["name"], role["id"], context, research)
+                    html = render_department_blueprint(result, master.get("company_name", ""))
+                    files.append({"name": f"{role['id']}-blueprint.html", "content": html})
+                    raw_departments.append(result)
+                except Exception as retry_err:
+                    print(f"    RETRY FAILED {role['name']}: {retry_err}")
             done_depts += 1
         # Update progress after each batch completes
         report(2, 5, f"Generating departments ({done_depts}/{total_depts})...")

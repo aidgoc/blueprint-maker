@@ -96,7 +96,7 @@ async def call_llm(system: str, prompt: str, model: str = None, max_tokens: int 
     """Call OpenRouter."""
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY is not set")
-    async with httpx.AsyncClient(timeout=180) as client:
+    async with httpx.AsyncClient(timeout=600) as client:
         resp = await client.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
@@ -117,9 +117,12 @@ async def call_llm(system: str, prompt: str, model: str = None, max_tokens: int 
         choices = data.get("choices")
         if not choices or not isinstance(choices, list):
             raise RuntimeError("LLM returned no choices")
+        finish_reason = choices[0].get("finish_reason", "")
         content = choices[0].get("message", {}).get("content", "")
         if not content:
             raise RuntimeError("LLM returned empty content")
+        if finish_reason == "length":
+            print(f"    WARNING: Research LLM output truncated at {max_tokens} tokens")
         return content
 
 
