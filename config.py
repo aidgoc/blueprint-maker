@@ -21,7 +21,7 @@ if not OPENROUTER_API_KEY:
 
 # Models -- all via OpenRouter
 PLANNER_MODEL = "google/gemini-2.5-pro"  # smart model for planning + research
-RENDERER_MODEL = "google/gemini-2.5-flash"  # capable model for subagent rendering
+RENDERER_MODEL = "google/gemini-2.5-pro"  # deep model for department blueprint generation
 PORT = int(os.environ.get("PORT", 8770))
 
 # Firebase / Google Cloud
