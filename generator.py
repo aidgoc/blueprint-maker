@@ -205,60 +205,96 @@ RULES:
 
 
 async def generate_master_blueprint(context: str, research: dict) -> dict:
-    """Generate master blueprint using research context."""
+    """Generate master blueprint using research context.
+
+    Uses TWO calls:
+      1. Structure call: stages + roles (small, fast)
+      2. Matrix call(s): fill the matrix in batches of roles to avoid truncation
+    """
 
     r1 = research.get("stage1", {})
     r2 = research.get("stage2", {})
 
-    compliance_text = ""
+    research_summary = ""
     if r2.get("compliance_requirements"):
-        compliance_text = "REAL COMPLIANCE STANDARDS FOUND:\n" + json.dumps(r2["compliance_requirements"], indent=1)
-
-    kpi_text = ""
+        research_summary += "COMPLIANCE: " + json.dumps(r2["compliance_requirements"], separators=(',',':')) + "\n"
     if r2.get("industry_kpis"):
-        kpi_text = "REAL INDUSTRY KPI BENCHMARKS:\n" + json.dumps(r2["industry_kpis"], indent=1)
+        research_summary += "KPIs: " + json.dumps(r2["industry_kpis"], separators=(',',':')) + "\n"
 
-    doc_text = ""
-    if r2.get("document_templates"):
-        doc_text = "REAL DOCUMENT TEMPLATES FOUND:\n" + json.dumps(r2["document_templates"], indent=1)
+    # ── CALL 1: Structure (stages + roles) ──
+    structure_prompt = f"""{context}
 
-    workflow_text = ""
-    if r2.get("workflow_patterns"):
-        workflow_text = "REAL WORKFLOW PATTERNS:\n" + json.dumps(r2["workflow_patterns"], indent=1)
+{research_summary}
 
-    prompt = f"""{context}
-
-### RESEARCH-BACKED DATA (use these — they are from real industry sources):
-{compliance_text}
-{kpi_text}
-{doc_text}
-{workflow_text}
-
----
-
-Using ALL the above context and research, generate a master service blueprint JSON:
+Define the STRUCTURE for a master service blueprint. Output JSON:
 {{
   "company_name": "...",
   "industry_tag": "short label",
   "stages": [{{"id": 1, "name": "Stage Name", "icon": "emoji"}}],
-  "roles": [{{"id": "role_key", "name": "Role Name", "icon": "emoji"}}],
+  "roles": [{{"id": "role_key", "name": "Role Name", "icon": "emoji"}}]
+}}
+
+CRITICAL RULES:
+- stages: Use ALL the process stages from the user's customer journey. Do NOT merge or consolidate. If the user described 10-14 steps, create 10-14 stages.
+- roles: Use ALL departments from the user's answers. Include a "client" role. Use snake_case for role IDs.
+- Output ONLY JSON. No markdown."""
+
+    print("    Master: generating structure...")
+    structure_result = await call_llm(PLANNER_SYSTEM, structure_prompt, PLANNER_MODEL, max_tokens=4000)
+    structure = extract_json(structure_result)
+
+    stages = structure.get("stages", [])
+    roles = structure.get("roles", [])
+    print(f"    Master: {len(stages)} stages × {len(roles)} roles = {len(stages)*len(roles)} cells")
+
+    # ── CALL 2+: Matrix in batches of 3-4 roles ──
+    stage_list = json.dumps(stages, separators=(',',':'))
+    matrix = {}
+    batch_size = 4
+
+    for i in range(0, len(roles), batch_size):
+        batch_roles = roles[i:i + batch_size]
+        role_names = ", ".join(r["name"] for r in batch_roles)
+        role_ids = json.dumps(batch_roles, separators=(',',':'))
+
+        matrix_prompt = f"""{context}
+
+STAGES: {stage_list}
+ROLES FOR THIS BATCH: {role_ids}
+
+Fill the service blueprint MATRIX for these {len(batch_roles)} roles across all {len(stages)} stages.
+
+Output JSON:
+{{
   "matrix": {{
-    "role_key-1": [
-      {{"type": "activity|document|approval|critical|handover", "text": "What", "detail": "Details"}}
+    "roleId-stageId": [
+      {{"type": "activity|document|approval|critical|handover", "text": "What (under 12 words)", "detail": "One sentence."}}
     ]
   }}
 }}
 
-IMPORTANT:
-- Use the ACTUAL stages and departments from the user's answers (refined as needed)
-- Matrix keys: "roleId-stageId". Generate for EVERY role × stage.
-- Each cell: 2-3 items MAXIMUM. Keep text SHORT (under 15 words). Keep detail to ONE sentence.
-- Include a "client" role for the customer's perspective.
-- Do NOT abbreviate with "..." — generate EVERY cell completely even if repetitive.
-- Output ONLY the JSON. Complete the ENTIRE matrix."""
+RULES:
+- Generate key "roleId-stageId" for EVERY role × stage combination. That's {len(batch_roles)} × {len(stages)} = {len(batch_roles)*len(stages)} cells.
+- Each cell: exactly 2 items.
+- Do NOT skip any cell. Do NOT abbreviate with "..."
+- Output ONLY JSON. No markdown."""
 
-    result = await call_llm(PLANNER_SYSTEM, prompt, PLANNER_MODEL, max_tokens=40000)
-    return extract_json(result)
+        print(f"    Matrix batch {i//batch_size+1}: {role_names}")
+        batch_result = await call_llm(PLANNER_SYSTEM, matrix_prompt, RENDERER_MODEL, max_tokens=32000)
+        try:
+            batch_data = extract_json(batch_result)
+            batch_matrix = batch_data.get("matrix", {})
+            matrix.update(batch_matrix)
+            print(f"      Got {len(batch_matrix)} cells")
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"      PARSE FAILED: {e}")
+
+    expected = len(stages) * len(roles)
+    actual = len(matrix)
+    print(f"    Master: {actual}/{expected} cells filled ({actual*100//expected if expected else 0}%)")
+
+    structure["matrix"] = matrix
+    return structure
 
 
 # ─── Department Blueprint Generation (TWO-CALL for depth) ────────────
