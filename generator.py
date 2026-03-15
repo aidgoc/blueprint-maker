@@ -207,9 +207,10 @@ RULES:
 async def generate_master_blueprint(context: str, research: dict) -> dict:
     """Generate master blueprint using research context.
 
-    Uses TWO calls:
-      1. Structure call: stages + roles (small, fast)
-      2. Matrix call(s): fill the matrix in batches of roles to avoid truncation
+    Uses THREE phases:
+      1. Structure call: stages + roles (Grok)
+      2. Executive summary: comprehensive business overview (Grok)
+      3. Matrix call(s): fill the matrix in batches of roles (Grok)
     """
 
     r1 = research.get("stage1", {})
@@ -220,6 +221,10 @@ async def generate_master_blueprint(context: str, research: dict) -> dict:
         research_summary += "COMPLIANCE: " + json.dumps(r2["compliance_requirements"], separators=(',',':')) + "\n"
     if r2.get("industry_kpis"):
         research_summary += "KPIs: " + json.dumps(r2["industry_kpis"], separators=(',',':')) + "\n"
+    if r2.get("workflow_patterns"):
+        research_summary += "WORKFLOWS: " + json.dumps(r2["workflow_patterns"], separators=(',',':')) + "\n"
+    if r2.get("safety_standards"):
+        research_summary += "SAFETY: " + json.dumps(r2["safety_standards"], separators=(',',':')) + "\n"
 
     # ── CALL 1: Structure (stages + roles) ──
     structure_prompt = f"""{context}
@@ -239,9 +244,76 @@ CRITICAL RULES:
 - roles: Use ALL departments from the user's answers. Include a "client" role. Use snake_case for role IDs.
 - Output ONLY JSON. No markdown."""
 
-    print("    Master: generating structure (OUTLINE_MODEL)...")
-    structure_result = await call_llm(PLANNER_SYSTEM, structure_prompt, OUTLINE_MODEL, max_tokens=4000)
+    # ── CALL 2: Executive Summary (comprehensive overview — the heart of the service blueprint) ──
+    summary_prompt = f"""{context}
+
+{research_summary}
+
+INDUSTRY RESEARCH:
+{json.dumps(r1, separators=(',',':')) if r1 else 'N/A'}
+
+Generate a COMPREHENSIVE executive summary for this business's master service blueprint. This is the most important document in the entire blueprint kit — it must be thorough, specific, and actionable.
+
+Output JSON:
+{{
+  "executive_summary": "A 4-5 paragraph executive overview of the business, its market position, operational model, and strategic direction. Reference specific industry standards, market dynamics, and competitive positioning. This should read like a management consulting deliverable.",
+  "business_model": {{
+    "value_proposition": "What unique value this business delivers",
+    "revenue_streams": ["Stream 1 with specifics", "Stream 2"],
+    "cost_drivers": ["Major cost driver 1", "Major cost driver 2"],
+    "competitive_advantages": ["Advantage 1", "Advantage 2"]
+  }},
+  "critical_success_factors": [
+    {{"factor": "Factor name", "description": "Why it matters and how to measure it", "risk_if_missing": "What happens if this fails"}}
+  ],
+  "process_overview": [
+    {{"stage": "Stage Name", "description": "2-3 sentence description of what happens at this stage, who is involved, what the key deliverables are, and what can go wrong", "duration": "Typical duration", "key_documents": ["Doc 1", "Doc 2"], "critical_handoffs": ["From X to Y"], "risk_points": ["Risk 1"]}}
+  ],
+  "key_metrics_dashboard": [
+    {{"metric": "Metric Name", "target": "Specific target", "current_benchmark": "Industry average", "measurement": "How to measure", "owner": "Who owns this"}}
+  ],
+  "organizational_overview": {{
+    "total_headcount": "Number",
+    "department_breakdown": [{{"department": "Name", "headcount": "N", "key_responsibility": "One-line summary"}}],
+    "reporting_structure": "Description of org hierarchy",
+    "key_dependencies": ["Dept A depends on Dept B for X"]
+  }},
+  "technology_stack": [
+    {{"system": "Name", "purpose": "What it does", "users": "Who uses it", "gaps": "What's missing"}}
+  ],
+  "strategic_roadmap": [
+    {{"timeframe": "0-6 months / 6-12 months / 1-2 years", "initiatives": ["Initiative 1", "Initiative 2"], "expected_impact": "What changes"}}
+  ]
+}}
+
+REQUIREMENTS:
+- executive_summary: 4-5 substantial paragraphs, consulting-grade language
+- critical_success_factors: 6-8 factors
+- process_overview: One entry per stage from the user's journey (10-14 entries)
+- key_metrics_dashboard: 10-15 metrics across all departments
+- department_breakdown: Every department with headcount
+- strategic_roadmap: 3 timeframes with 3-4 initiatives each
+- Be SPECIFIC to this business. No generic content.
+
+Output ONLY JSON. No markdown."""
+
+    # Run structure + summary in parallel (both use OUTLINE_MODEL / Grok)
+    print("    Master: generating structure + executive summary (OUTLINE_MODEL)...")
+    structure_result, summary_result = await asyncio.gather(
+        call_llm(PLANNER_SYSTEM, structure_prompt, OUTLINE_MODEL, max_tokens=4000),
+        call_llm(PLANNER_SYSTEM, summary_prompt, OUTLINE_MODEL, max_tokens=32000),
+    )
+
     structure = extract_json(structure_result)
+
+    # Parse executive summary
+    try:
+        summary_data = extract_json(summary_result)
+        structure.update(summary_data)
+        print(f"    Master: executive summary OK ({len(summary_result)} chars)")
+    except (json.JSONDecodeError, Exception) as e:
+        print(f"    Master: executive summary FAILED ({e})")
+        structure["executive_summary"] = ""
 
     stages = structure.get("stages", [])
     roles = structure.get("roles", [])

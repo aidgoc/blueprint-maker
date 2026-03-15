@@ -455,6 +455,142 @@ def render_master_blueprint(data: dict) -> str:
         </div>
     </div>'''
 
+    # ── Executive Summary Section ──
+    exec_summary = _esc(data.get("executive_summary", ""))
+    business_model = data.get("business_model", {})
+    csf_list = data.get("critical_success_factors", [])
+    process_overview = data.get("process_overview", [])
+    metrics_dashboard = data.get("key_metrics_dashboard", [])
+    org_overview = data.get("organizational_overview", {})
+    tech_stack = data.get("technology_stack", [])
+    roadmap = data.get("strategic_roadmap", [])
+
+    summary_html = ""
+    if exec_summary:
+        # Executive Summary
+        summary_paragraphs = exec_summary.replace("\\n", "\n").split("\n")
+        summary_paras = "".join(f"<p style='margin-bottom:14px;'>{p.strip()}</p>" for p in summary_paragraphs if p.strip())
+
+        # Business Model
+        bm_html = ""
+        if business_model:
+            vp = _esc(business_model.get("value_proposition", ""))
+            revenues = business_model.get("revenue_streams", [])
+            costs = business_model.get("cost_drivers", [])
+            advantages = business_model.get("competitive_advantages", [])
+            rev_items = "".join(f"<li>{_esc(r)}</li>" for r in revenues)
+            cost_items = "".join(f"<li>{_esc(c)}</li>" for c in costs)
+            adv_items = "".join(f"<li>{_esc(a)}</li>" for a in advantages)
+            bm_html = f'''<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0;">
+                <div class="metric-card"><h4>Value Proposition</h4><p style="font-size:13px;color:var(--text-secondary);margin-top:8px;">{vp}</p></div>
+                <div class="metric-card"><h4>Competitive Advantages</h4><ul style="font-size:13px;color:var(--text-secondary);margin-top:8px;padding-left:16px;">{adv_items}</ul></div>
+                <div class="metric-card"><h4>Revenue Streams</h4><ul style="font-size:13px;color:var(--text-secondary);margin-top:8px;padding-left:16px;">{rev_items}</ul></div>
+                <div class="metric-card"><h4>Cost Drivers</h4><ul style="font-size:13px;color:var(--text-secondary);margin-top:8px;padding-left:16px;">{cost_items}</ul></div>
+            </div>'''
+
+        # Critical Success Factors
+        csf_html = ""
+        if csf_list:
+            csf_cards = ""
+            for csf in csf_list:
+                fname = _esc(csf.get("factor", ""))
+                fdesc = _esc(csf.get("description", ""))
+                frisk = _esc(csf.get("risk_if_missing", ""))
+                csf_cards += f'''<div class="metric-card">
+                    <h4>{fname}</h4>
+                    <p style="font-size:12px;color:var(--text-secondary);margin-top:6px;">{fdesc}</p>
+                    <div style="font-size:11px;color:var(--red);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">Risk: {frisk}</div>
+                </div>'''
+            csf_html = f'<h3 style="font-size:16px;font-weight:700;color:var(--brand);margin:24px 0 12px;">Critical Success Factors</h3><div class="card-grid">{csf_cards}</div>'
+
+        # Process Overview
+        process_html = ""
+        if process_overview:
+            process_cards = ""
+            colors = ["blue", "green", "teal", "orange", "purple", "red"]
+            for idx, po in enumerate(process_overview):
+                sname = _esc(po.get("stage", ""))
+                sdesc = _esc(po.get("description", ""))
+                sdur = _esc(po.get("duration", ""))
+                sdocs = ", ".join(_esc(d) for d in po.get("key_documents", []))
+                srisks = ", ".join(_esc(r) for r in po.get("risk_points", []))
+                color = colors[idx % len(colors)]
+                process_cards += f'''<div style="background:var(--surface);border-radius:var(--radius);padding:16px;border:1px solid var(--border);border-left:4px solid var(--{color});">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <h4 style="font-size:14px;font-weight:700;color:var(--text);">{idx+1}. {sname}</h4>
+                        <span style="font-size:11px;background:var(--{color}-light,var(--bg));color:var(--{color});padding:3px 10px;border-radius:100px;font-weight:600;">{sdur}</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:8px;">{sdesc}</p>
+                    {"<div style='font-size:11px;color:var(--text-muted);'><strong>Documents:</strong> " + sdocs + "</div>" if sdocs else ""}
+                    {"<div style='font-size:11px;color:var(--red);margin-top:4px;'><strong>Risks:</strong> " + srisks + "</div>" if srisks else ""}
+                </div>'''
+            process_html = f'<h3 style="font-size:16px;font-weight:700;color:var(--brand);margin:24px 0 12px;">Process Overview — Stage by Stage</h3><div style="display:grid;gap:12px;">{process_cards}</div>'
+
+        # Key Metrics Dashboard
+        metrics_html = ""
+        if metrics_dashboard:
+            metric_cards = ""
+            kpi_colors = ["green", "blue", "orange", "purple", "red", "teal"]
+            for idx, m in enumerate(metrics_dashboard):
+                mname = _esc(m.get("metric", ""))
+                mtarget = _esc(m.get("target", ""))
+                mbench = _esc(m.get("current_benchmark", ""))
+                mmeas = _esc(m.get("measurement", ""))
+                mowner = _esc(m.get("owner", ""))
+                kcolor = kpi_colors[idx % len(kpi_colors)]
+                metric_cards += f'''<div class="kpi-card {kcolor}">
+                    <div class="kpi-name">{mname}</div>
+                    <div class="kpi-value">{mtarget}</div>
+                    <div class="kpi-target">Benchmark: {mbench}</div>
+                    <div class="kpi-desc">{mmeas}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Owner: {mowner}</div>
+                </div>'''
+            metrics_html = f'<h3 style="font-size:16px;font-weight:700;color:var(--brand);margin:24px 0 12px;">Key Metrics Dashboard</h3><div class="kpi-grid">{metric_cards}</div>'
+
+        # Org Overview
+        org_html = ""
+        if org_overview and org_overview.get("department_breakdown"):
+            dept_cards = ""
+            for dept in org_overview.get("department_breakdown", []):
+                dname = _esc(dept.get("department", ""))
+                dcount = _esc(str(dept.get("headcount", "")))
+                dresp = _esc(dept.get("key_responsibility", ""))
+                dept_cards += f'<div class="metric-card"><h4>{dname}</h4><div class="value">{dcount}</div><div class="detail">{dresp}</div></div>'
+            total_hc = _esc(str(org_overview.get("total_headcount", "")))
+            reporting = _esc(org_overview.get("reporting_structure", ""))
+            org_html = f'''<h3 style="font-size:16px;font-weight:700;color:var(--brand);margin:24px 0 12px;">Organization — {total_hc} People</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">{reporting}</p>
+                <div class="card-grid">{dept_cards}</div>'''
+
+        # Strategic Roadmap
+        roadmap_html = ""
+        if roadmap:
+            rm_cards = ""
+            rm_colors = ["green", "blue", "purple"]
+            for idx, rm in enumerate(roadmap):
+                tf = _esc(rm.get("timeframe", ""))
+                inits = rm.get("initiatives", [])
+                impact = _esc(rm.get("expected_impact", ""))
+                color = rm_colors[idx % len(rm_colors)]
+                init_items = "".join(f"<li style='margin-bottom:4px;'>{_esc(i)}</li>" for i in inits)
+                rm_cards += f'''<div style="background:var(--surface);border-radius:var(--radius);padding:20px;border:1px solid var(--border);border-top:4px solid var(--{color});">
+                    <h4 style="font-size:14px;font-weight:700;color:var(--{color});margin-bottom:10px;">{tf}</h4>
+                    <ul style="font-size:13px;color:var(--text-secondary);padding-left:16px;line-height:1.6;">{init_items}</ul>
+                    <div style="font-size:12px;color:var(--text);font-weight:600;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">Impact: {impact}</div>
+                </div>'''
+            roadmap_html = f'<h3 style="font-size:16px;font-weight:700;color:var(--brand);margin:24px 0 12px;">Strategic Roadmap</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;">{rm_cards}</div>'
+
+        summary_html = f'''<div id="summarySection" class="section" style="padding:24px 32px;">
+            <div class="section-title">Executive Summary</div>
+            <div style="font-size:14px;color:var(--text);line-height:1.8;max-width:900px;">{summary_paras}</div>
+            {bm_html}
+            {csf_html}
+            {process_html}
+            {metrics_html}
+            {org_html}
+            {roadmap_html}
+        </div>'''
+
     return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -475,16 +611,21 @@ def render_master_blueprint(data: dict) -> str:
 <header class="main-header">
   <div class="header-left">
     <h1>{company}</h1>
-    <div class="subtitle">{industry} &middot; {num_roles} Roles &middot; {num_stages} Stages &middot; Complete Process Map</div>
+    <div class="subtitle">{industry} &middot; {num_roles} Roles &middot; {num_stages} Stages &middot; Complete Service Blueprint</div>
   </div>
   <div class="header-right">
     <span>Blueprint</span>
     <div style="margin-top:8px;">
-      <button class="ctrl-btn" onclick="toggleView()" id="viewToggle">Department Hub</button>
+      <button class="ctrl-btn active" onclick="showSection('summary')" id="btnSummary">Executive Summary</button>
+      <button class="ctrl-btn" onclick="showSection('grid')" id="btnGrid">Process Matrix</button>
+      <button class="ctrl-btn" onclick="showSection('hub')" id="btnHub">Department Hub</button>
     </div>
   </div>
 </header>
 
+{summary_html}
+
+<div id="gridSection" style="display:none;">
 <div class="legend-bar">
   <span style="font-size:12px;font-weight:600;color:var(--text);margin-right:8px;">Legend</span>
   <div class="legend-item"><div class="legend-swatch activity"></div> Activity</div>
@@ -494,25 +635,26 @@ def render_master_blueprint(data: dict) -> str:
   <div class="legend-item"><div class="legend-swatch handover"></div> Handover Point</div>
   <div class="legend-item" style="margin-left:auto;color:var(--text-muted);font-size:11px;">Click any cell to expand details</div>
 </div>
-
 <div class="controls-bar">
   <button class="ctrl-btn" onclick="expandAll()">Expand All</button>
   <button class="ctrl-btn" onclick="collapseAll()">Collapse All</button>
   <button class="ctrl-btn" onclick="window.print()">Print / PDF</button>
 </div>
+{grid_html}
+</div>
 
-<div id="gridView">{grid_html}</div>
 {hub_html}
 
 <script>
 function expandAll() {{ document.querySelectorAll('.bp-cell').forEach(c => c.classList.add('expanded')); }}
 function collapseAll() {{ document.querySelectorAll('.bp-cell').forEach(c => c.classList.remove('expanded')); }}
-var showHub = false;
-function toggleView() {{
-  showHub = !showHub;
-  document.getElementById('gridView').style.display = showHub ? 'none' : 'block';
-  document.getElementById('hubSection').style.display = showHub ? 'block' : 'none';
-  document.getElementById('viewToggle').textContent = showHub ? 'Blueprint Grid' : 'Department Hub';
+function showSection(name) {{
+  document.getElementById('summarySection').style.display = name === 'summary' ? 'block' : 'none';
+  document.getElementById('gridSection').style.display = name === 'grid' ? 'block' : 'none';
+  document.getElementById('hubSection').style.display = name === 'hub' ? 'block' : 'none';
+  document.querySelectorAll('.main-header .ctrl-btn').forEach(b => b.classList.remove('active'));
+  var btnId = name === 'summary' ? 'btnSummary' : name === 'grid' ? 'btnGrid' : 'btnHub';
+  document.getElementById(btnId).classList.add('active');
 }}
 </script>
 </body>

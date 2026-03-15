@@ -19,10 +19,10 @@ if not OPENROUTER_API_KEY:
                 OPENROUTER_API_KEY = val
                 break
 
-# Models -- 3-model pipeline via OpenRouter
-PLANNER_MODEL = "openai/gpt-5.2-pro"             # Stage 1: research + planning (fast, cost-effective)
-OUTLINE_MODEL = "google/gemini-3-flash-preview"   # Stage 2: master blueprint structure + matrix outline
-RENDERER_MODEL = "qwen/qwen3.5-397b-a17b"        # Stage 3: department execution (massive model for depth)
+# Models -- Gemini + Grok pipeline via OpenRouter
+PLANNER_MODEL = "google/gemini-2.5-pro"           # Research + planning (strong reasoning)
+OUTLINE_MODEL = "x-ai/grok-4"                     # Master service blueprint (most comprehensive output)
+RENDERER_MODEL = "google/gemini-2.5-pro"           # Department execution (reliable structured output)
 PORT = int(os.environ.get("PORT", 8770))
 
 # Firebase / Google Cloud
