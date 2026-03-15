@@ -849,19 +849,11 @@ async def generate_status(session_id: str, request: Request):
     if sess["status"] == "generated":
         files = _recover_files_from_storage(sess)
         bp_id = sess.get("blueprint_id")
-        has_editor = False
-        if bp_id:
-            try:
-                from db import get_blueprint as _get_bp
-                _bp = _get_bp(bp_id)
-                has_editor = bool(_bp and _bp.get("format") == "blocks")
-            except Exception:
-                pass
         response = {
             "status": "done",
             "file_count": len(files),
             "files": [f["name"] for f in files],
-            "blueprint_id": bp_id if has_editor else None,
+            "blueprint_id": bp_id,
         }
         if sess.get("persist_warning"):
             response["persist_warning"] = True
@@ -1452,30 +1444,42 @@ async def update_blueprint_section_order(blueprint_id: str, request: Request):
 
 @app.get("/api/blueprints/{blueprint_id}/export/zip")
 async def export_blueprint_zip(blueprint_id: str, request: Request):
-    """Generate a ZIP file from block data on demand."""
+    """Generate a ZIP file from blueprint data (blocks or legacy files)."""
     enforce_rate_limit(request)
     from auth import get_current_user
     from db import get_blueprint, list_sections
-    from block_renderer import render_section_to_html
 
     user = await get_current_user(request)
     bp = get_blueprint(blueprint_id)
     if not bp or (bp.get("user_id") != user.uid and not bp.get("is_shared")):
         raise HTTPException(404, "Blueprint not found")
-    if bp.get("format") != "blocks":
-        raise HTTPException(400, "Use /api/download/{session_id} for legacy blueprints")
-
-    sections = list_sections(blueprint_id)
-    if not sections:
-        raise HTTPException(404, "No sections found")
 
     zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for section in sections:
-            html = render_section_to_html(section)
-            # Sanitize filename
-            safe_name = "".join(c for c in section["id"] if c.isalnum() or c in ("_", "-"))
-            zf.writestr(f"{safe_name}.html", html)
+
+    if bp.get("format") == "blocks":
+        from block_renderer import render_section_to_html
+        sections = list_sections(blueprint_id)
+        if not sections:
+            raise HTTPException(404, "No sections found")
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for section in sections:
+                html = render_section_to_html(section)
+                safe_name = "".join(c for c in section["id"] if c.isalnum() or c in ("_", "-"))
+                zf.writestr(f"{safe_name}.html", html)
+    else:
+        # Legacy format — download files from Cloud Storage
+        from storage import download_file
+        files = bp.get("files", [])
+        if not files:
+            raise HTTPException(404, "No files found")
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for f in files:
+                storage_path = f.get("storage_path") if isinstance(f, dict) else None
+                file_name = f.get("name") if isinstance(f, dict) else f
+                if storage_path:
+                    content = download_file(storage_path)
+                    if content:
+                        zf.writestr(file_name, content)
 
     zip_buffer.seek(0)
     safe_title = "".join(c for c in bp.get("title", "blueprint") if c.isalnum() or c in ("_", "-", " ")).replace(" ", "_")

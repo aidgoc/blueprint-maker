@@ -771,23 +771,6 @@ button:active:not(:disabled) {
 .chat-send-btn { background: var(--brand); color: white; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; font-size: 14px; }
 .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Editor Screen ── */
-#editorScreen { display: none; height: calc(100vh - 60px); }
-.editor-layout { display: flex; height: 100%; }
-.editor-sidebar {
-  width: 220px; border-right: 1px solid var(--border); overflow-y: auto; background: var(--surface);
-}
-.editor-sidebar .section-item {
-  padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-light);
-  font-size: 14px; transition: all 150ms;
-}
-.editor-sidebar .section-item:hover { background: var(--bg-hover); }
-.editor-sidebar .section-item.active {
-  border-left: 2px solid var(--brand); background: transparent; color: var(--text); font-weight: 600;
-}
-.editor-main { flex: 1; overflow-y: auto; padding: 32px; }
-.editor-chat { width: 350px; border-left: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-subtle); }
-.editor-block { margin-bottom: 16px; }
 
 /* Back Button */
 .back-btn { background: none; border: 1px solid var(--border); color: var(--text-tertiary); padding: 6px 12px;
@@ -1068,16 +1051,6 @@ button:active:not(:disabled) {
   <div class="dash-content" id="detailContent"></div>
 </div>
 
-<!-- Editor Screen -->
-<div id="editorScreen">
-  <div class="editor-layout">
-    <div class="editor-sidebar" id="editorSidebar"></div>
-    <div class="editor-main" id="editorMain">
-      <div id="editorBlocks"></div>
-    </div>
-    <div class="editor-chat" id="chatPanel"></div>
-  </div>
-</div>
 
 <header class="header hidden" id="mainHeader">
   <div style="display:flex;align-items:center;gap:16px;">
@@ -1386,7 +1359,6 @@ function hideAllScreens() {
   ['authScreen', 'dashboardScreen', 'detailScreen', 'landingScreen', 'appScreen'].forEach(function(id) {
     document.getElementById(id).classList.add('hidden');
   });
-  document.getElementById('editorScreen').style.display = 'none';
   document.getElementById('mainHeader').classList.add('hidden');
 }
 
@@ -1731,7 +1703,7 @@ function getFilteredBlueprints() {
   var search = (document.getElementById('dashSearch').value || '').toLowerCase();
   return dashBlueprints.filter(function(bp) {
     if (activeFolder && bp.folder_id !== activeFolder) return false;
-    if (search && (bp.name || '').toLowerCase().indexOf(search) === -1) return false;
+    if (search && (bp.title || '').toLowerCase().indexOf(search) === -1) return false;
     return true;
   });
 }
@@ -1769,16 +1741,12 @@ function renderBlueprintsGrid(area, bps) {
     card.className = 'bp-card';
     card.onclick = function(e) {
       if (e.target.closest('.bp-card-actions')) return;
-      if (bp.format === 'blocks') {
-        EditorScreen.show(bp.id);
-        return;
-      }
       showDetailScreen(bp);
     };
 
     var title = document.createElement('div');
     title.className = 'bp-card-title';
-    title.textContent = bp.name || 'Untitled Blueprint';
+    title.textContent = bp.title || 'Untitled Blueprint';
     card.appendChild(title);
 
     var date = document.createElement('div');
@@ -1827,11 +1795,7 @@ function renderBlueprintsGrid(area, bps) {
     var menuItems = [
       { label: 'Preview', action: function() { showDetailScreen(bp); } },
       { label: 'Download', action: function() {
-        if (bp.format === 'blocks') {
-          downloadFile('/api/blueprints/' + bp.id + '/export/zip', (bp.name || 'blueprint') + '.zip');
-        } else {
-          downloadFile('/api/download/' + encodeURIComponent(bp.session_id), (bp.name || 'blueprint') + '.zip');
-        }
+        downloadFile('/api/blueprints/' + bp.id + '/export/zip', (bp.title || 'blueprint') + '.zip');
       } },
       { label: 'Rename', action: function() { renameBlueprintModal(bp); } },
       { label: 'Move to Folder', action: function() { moveBlueprintModal(bp); } },
@@ -1877,7 +1841,7 @@ function renderBlueprintsList(area, bps) {
   bps.forEach(function(bp) {
     var tr = document.createElement('tr');
     tr.innerHTML =
-      '<td class="td-name" onclick="window._viewBp(\'' + bp.id + '\')">' + escapeHtml(bp.name || 'Untitled') + '</td>' +
+      '<td class="td-name" onclick="window._viewBp(\'' + bp.id + '\')">' + escapeHtml(bp.title || 'Untitled') + '</td>' +
       '<td>' + escapeHtml(bp.folder_name || '--') + '</td>' +
       '<td>' + (bp.file_count || 0) + '</td>' +
       '<td><span class="bp-badge ' + (bp.status || 'completed') + '">' + (bp.status || 'completed') + '</span></td>' +
@@ -1914,7 +1878,7 @@ function renameBlueprintModal(bp) {
   var body = document.createElement('div');
   var input = document.createElement('input');
   input.className = 'modal-input';
-  input.value = bp.name || '';
+  input.value = bp.title || '';
   input.id = 'renameBpInput';
   body.appendChild(input);
   showModal({
@@ -2010,7 +1974,7 @@ function showShareLinkModal(url) {
 function deleteBlueprintModal(bp) {
   showModal({
     title: 'Delete Blueprint',
-    html: '<p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Are you sure you want to delete "' + escapeHtml(bp.name || 'Untitled') + '"? This cannot be undone.</p>',
+    html: '<p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">Are you sure you want to delete "' + escapeHtml(bp.title || 'Untitled') + '"? This cannot be undone.</p>',
     confirmText: 'Delete',
     danger: true,
     onConfirm: function() {
@@ -2026,21 +1990,33 @@ function deleteBlueprintModal(bp) {
 /* ── Blueprint Detail ── */
 function renderBlueprintDetail(bp) {
   var content = document.getElementById('detailContent');
-  content.innerHTML = '';
+  while (content.firstChild) content.removeChild(content.firstChild);
 
   var back = document.createElement('a');
   back.className = 'dash-back';
-  back.innerHTML = '&larr; Back to Dashboard';
+  back.textContent = '\u2190 Back to Dashboard';
   back.onclick = function() { showDashboard(); };
   content.appendChild(back);
 
   var card = document.createElement('div');
   card.className = 'bp-detail-card';
 
-  var title = document.createElement('div');
-  title.className = 'bp-detail-title';
-  title.textContent = bp.name || 'Untitled Blueprint';
-  card.appendChild(title);
+  // Title row with inline rename
+  var titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:4px;';
+  var titleEl = document.createElement('div');
+  titleEl.className = 'bp-detail-title';
+  titleEl.style.marginBottom = '0';
+  titleEl.textContent = bp.title || 'Untitled Blueprint';
+  titleRow.appendChild(titleEl);
+
+  var renameBtn = document.createElement('button');
+  renameBtn.className = 'restart-btn';
+  renameBtn.style.cssText = 'font-size:12px;padding:4px 12px;margin-top:0;';
+  renameBtn.textContent = 'Rename';
+  renameBtn.onclick = function() { renameBlueprintModal(bp); };
+  titleRow.appendChild(renameBtn);
+  card.appendChild(titleRow);
 
   var date = document.createElement('div');
   date.className = 'bp-detail-date';
@@ -2053,16 +2029,10 @@ function renderBlueprintDetail(bp) {
 
   var dlBtn = document.createElement('button');
   dlBtn.className = 'download-btn';
-  dlBtn.style.fontSize = '13px';
-  dlBtn.style.padding = '10px 22px';
-  dlBtn.style.marginTop = '0';
+  dlBtn.style.cssText = 'font-size:13px;padding:10px 22px;margin-top:0;';
   dlBtn.textContent = 'Download ZIP';
   dlBtn.onclick = function() {
-    if (bp.format === 'blocks') {
-      downloadFile('/api/blueprints/' + bp.id + '/export/zip', (bp.name || 'blueprint') + '.zip');
-    } else {
-      downloadFile('/api/download/' + encodeURIComponent(bp.session_id), (bp.name || 'blueprint') + '.zip');
-    }
+    downloadFile('/api/blueprints/' + bp.id + '/export/zip', (bp.title || 'blueprint') + '.zip');
   };
   actions.appendChild(dlBtn);
 
@@ -2080,14 +2050,29 @@ function renderBlueprintDetail(bp) {
     var sharePanel = document.createElement('div');
     sharePanel.className = 'share-panel';
     var shareUrl = window.location.origin + '/shared/' + bp.share_token;
-    sharePanel.innerHTML = '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Share link:</div>' +
-      '<div class="share-url-row"><input class="share-url-input" value="' + shareUrl + '" readonly>' +
-      '<button class="share-copy-btn" onclick="navigator.clipboard.writeText(\'' + shareUrl + '\').then(function(){this.textContent=\'Copied!\'}.bind(this))">Copy</button></div>';
+    var shareLabelDiv = document.createElement('div');
+    shareLabelDiv.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;';
+    shareLabelDiv.textContent = 'Share link:';
+    sharePanel.appendChild(shareLabelDiv);
+    var shareRow = document.createElement('div');
+    shareRow.className = 'share-url-row';
+    var shareInput = document.createElement('input');
+    shareInput.className = 'share-url-input';
+    shareInput.value = shareUrl;
+    shareInput.readOnly = true;
+    shareRow.appendChild(shareInput);
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'share-copy-btn';
+    copyBtn.textContent = 'Copy';
+    copyBtn.onclick = function() { navigator.clipboard.writeText(shareUrl).then(function() { copyBtn.textContent = 'Copied!'; }); };
+    shareRow.appendChild(copyBtn);
+    sharePanel.appendChild(shareRow);
     card.appendChild(sharePanel);
   }
 
-  // Files list
-  if (bp.files && bp.files.length) {
+  // Files list — supports both cloud storage objects {name, storage_path} and plain strings
+  var fileList = bp.files || [];
+  if (fileList.length) {
     var filesLabel = document.createElement('div');
     filesLabel.className = 'section-label';
     filesLabel.style.marginTop = '20px';
@@ -2096,17 +2081,20 @@ function renderBlueprintDetail(bp) {
 
     var ul = document.createElement('ul');
     ul.className = 'file-list';
-    bp.files.forEach(function(f) {
+    fileList.forEach(function(f) {
+      var fileName = typeof f === 'string' ? f : f.name;
       var li = document.createElement('li');
       var fn = document.createElement('span');
       fn.className = 'fname';
-      fn.textContent = f;
+      fn.textContent = fileName;
       li.appendChild(fn);
-      var lk = document.createElement('a');
-      lk.href = '/api/preview/' + encodeURIComponent(bp.session_id) + '/' + encodeURIComponent(f);
-      lk.target = '_blank';
-      lk.textContent = 'Preview \u2192';
-      li.appendChild(lk);
+      if (bp.id) {
+        var lk = document.createElement('a');
+        lk.href = '/api/user/blueprints/' + bp.id + '/preview/' + encodeURIComponent(fileName);
+        lk.target = '_blank';
+        lk.textContent = 'Preview \u2192';
+        li.appendChild(lk);
+      }
       ul.appendChild(li);
     });
     card.appendChild(ul);
@@ -2588,12 +2576,7 @@ function transitionToResults(gc, sub, barFill, stepText, data) {
   }
 
   setTimeout(function() {
-    if (data.blueprint_id) {
-      EditorScreen._fallbackData = data;
-      EditorScreen.show(data.blueprint_id);
-    } else {
-      showResults(data);
-    }
+    showResults(data);
   }, 800);
 }
 
@@ -2750,122 +2733,8 @@ function showResults(data) {
   rc.appendChild(card);
 }
 
-// --- Editor Screen ---
-var editorBlueprintId = null;
-var editorSections = [];
-var editorCurrentSection = null;
-
-window.EditorScreen = {
-  show: function(blueprintId) {
-    editorBlueprintId = blueprintId;
-    hideAllScreens();
-    document.getElementById('editorScreen').style.display = 'block';
-    this.loadSections();
-  },
-
-  loadSections: function() {
-    fetchWithAuth('/api/blueprints/' + editorBlueprintId + '/sections', {headers: authHeaders()})
-    .then(function(sections) {
-      if (!sections || sections.length === 0) {
-        showToast('No sections found — showing file list instead.', 'info');
-        if (EditorScreen._fallbackData) { showResults(EditorScreen._fallbackData); }
-        else { showDashboard(); }
-        return;
-      }
-      editorSections = sections;
-      EditorScreen.renderSidebar();
-      if (sections.length > 0) {
-        EditorScreen.loadSection(sections[0].id);
-      }
-    })
-    .catch(function(e) {
-      showToast(friendlyError(e), 'error');
-      // Editor can't load — fall back to results or dashboard
-      if (EditorScreen._fallbackData) { showResults(EditorScreen._fallbackData); }
-      else { showDashboard(); }
-    });
-  },
-
-  renderSidebar: function() {
-    var sidebar = document.getElementById('editorSidebar');
-    while (sidebar.firstChild) sidebar.removeChild(sidebar.firstChild);
-
-    // Back to dashboard button
-    var backBtn = document.createElement('div');
-    backBtn.className = 'section-item';
-    backBtn.style.fontWeight = '600';
-    backBtn.textContent = '\u2190 Dashboard';
-    backBtn.onclick = function() { showDashboard(); };
-    sidebar.appendChild(backBtn);
-
-    editorSections.forEach(function(s) {
-      var item = document.createElement('div');
-      item.className = 'section-item' + (editorCurrentSection === s.id ? ' active' : '');
-      item.textContent = s.title;
-      item.onclick = function() { EditorScreen.loadSection(s.id); };
-      sidebar.appendChild(item);
-    });
-  },
-
-  loadSection: function(sectionId) {
-    editorCurrentSection = sectionId;
-    this.renderSidebar();
-
-    var blocksContainer = document.getElementById('editorBlocks');
-    if (blocksContainer) {
-      while (blocksContainer.firstChild) blocksContainer.removeChild(blocksContainer.firstChild);
-      for (var sk = 0; sk < 3; sk++) {
-        var skel = document.createElement('div');
-        skel.className = 'skeleton skeleton-block';
-        blocksContainer.appendChild(skel);
-      }
-    }
-
-    fetchWithAuth('/api/blueprints/' + editorBlueprintId + '/sections/' + sectionId, {headers: authHeaders()})
-    .then(function(section) {
-      EditorScreen.renderBlocks(section);
-      ChatPanel.init(editorBlueprintId, sectionId);
-      if (window.EditorTour) EditorTour.start();
-    })
-    .catch(function(e) { showToast(friendlyError(e), 'error'); });
-  },
-
-  reloadSection: function(sectionId) {
-    if (sectionId === editorCurrentSection) {
-      this.loadSection(sectionId);
-    }
-  },
-
-  renderBlocks: function(section) {
-    // Initialize the block editor with this section's data
-    BlockEditor.init(editorBlueprintId, section.id, section.blocks || []);
-    // Clear undo stack for new section
-    if (window.UndoManager) UndoManager.clear();
-  }
-};
 
 })();
 </script>
-<!-- Block Editor -->
-<script src="/static/editor/editor.js"></script>
-<!-- Block Types (register with BlockEditor) -->
-<script src="/static/editor/blocks/heading.js"></script>
-<script src="/static/editor/blocks/rich-text.js"></script>
-<script src="/static/editor/blocks/workflow.js"></script>
-<script src="/static/editor/blocks/kpi-grid.js"></script>
-<script src="/static/editor/blocks/checklist.js"></script>
-<script src="/static/editor/blocks/table.js"></script>
-<script src="/static/editor/blocks/timeline.js"></script>
-<script src="/static/editor/blocks/card-grid.js"></script>
-<script src="/static/editor/blocks/glossary.js"></script>
-<script src="/static/editor/blocks/org-chart.js"></script>
-<script src="/static/editor/blocks/flow-diagram.js"></script>
-<script src="/static/editor/blocks/divider.js"></script>
-<!-- Editor utilities (attach to BlockEditor) -->
-<script src="/static/editor/style-panel.js"></script>
-<script src="/static/editor/undo.js"></script>
-<script src="/static/editor/chat-panel.js"></script>
-<script src="/static/editor/offline.js"></script>
-<script src="/static/editor/tooltips.js"></script>
 </body>
 </html>
